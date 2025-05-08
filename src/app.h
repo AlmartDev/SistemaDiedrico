@@ -13,23 +13,22 @@
 
 class App {
 public:
-    App();   
-    ~App();  
+    App();
+    ~App();
 
-    bool Init(); 
-    void Run();  
-    void Shutdown();  
+    bool Initialize();
+    void Run();
+    void Shutdown();
+
 private:
+    GLFWwindow* m_window;
+    Renderer m_renderer;
+    Camera m_camera;
 
-    GLFWwindow* window;  // GLFW window pointer
-    Renderer renderer;  // Renderer object
-
-    Camera camera;  // Camera object
-
-    // input for camera control
-    bool isMousePressed;  // Flag for mouse press state
-    float lastX, lastY;
-    double scrollY;
+    // Input state
+    bool m_isMousePressed;
+    float m_lastMouseX;
+    float m_lastMouseY;
 };
 
 #endif // APP_H

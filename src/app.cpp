@@ -1,64 +1,64 @@
-// app.cpp
 #include "app.h"
 #include "style.h"
 
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <string>
 
 #include <imgui.h>
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 
-// Application state variables
 namespace {
     struct Point {
         std::string name;
         float coords[3];
-        float color[3] = {1.0f, 0.5f, 0.0f}; // Default orange color for points
+        float color[3] = {1.0f, 0.5f, 0.0f}; // Default orange color
     };
 
-    // Global settings
-    struct {
+    struct Settings {
         float backgroundColor[3] = {0.0f, 0.0f, 0.0f};
-        int axesType = 1; // Default axes type
+        int axesType = 1; // Default to Cartesian axes
         bool showDihedralSystem = true;
         bool showCutPoints = true;
         float mouseSensitivity = 0.2f;
         float cameraDistance = 5.5f;
-    } settings;
+        float pointSize = 8.0f;
+    };
 
-    int width = 1600;  // Default width
-    int height = 1200; // Default height
+    constexpr int DEFAULT_WIDTH = 1600;
+    constexpr int DEFAULT_HEIGHT = 1200;
 
-    std::vector<Point> points; // Collection of user-defined points
+    std::vector<Point> s_points;
+    Settings s_settings;
 }
 
-App::App() : window(nullptr), isMousePressed(false), lastX(0), lastY(0) {}
+App::App() : m_window(nullptr), m_isMousePressed(false), 
+             m_lastMouseX(0), m_lastMouseY(0) {}
+
 App::~App() = default;
 
-bool App::Init() {
-    // Initialize GLFW
+bool App::Initialize() {
     if (!glfwInit()) {
-        std::cerr << "GLFW initialization failed\n";
+        std::cerr << "Failed to initialize GLFW\n";
         return false;
     }
 
-    window = glfwCreateWindow(width, height, "Sistema Diedrico", nullptr, nullptr);
-    if (!window) {
-        std::cerr << "Error creating GLFW window\n";
+    m_window = glfwCreateWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Sistema Diedrico", nullptr, nullptr);
+    if (!m_window) {
+        std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
         return false;
     }
 
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(m_window);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Failed to initialize OpenGL loader (GLAD)\n";
         return false;
     }
 
-    // Configure OpenGL
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -66,14 +66,13 @@ bool App::Init() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-    setStyle();
+    SetCustomStyle();
 
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplGlfw_InitForOpenGL(m_window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 
-    // Initialize renderer and camera
-    if (!renderer.Init()) {
-        std::cerr << "Renderer initialization failed\n";
+    if (!m_renderer.Initialize()) {
+        std::cerr << "Failed to initialize renderer\n";
         return false;
     }
     
@@ -81,35 +80,29 @@ bool App::Init() {
 }
 
 void DrawSettingsWindow(Renderer& renderer, Camera& camera) {
-    ImGui::Begin("Ajustes representación 3D");
+    ImGui::Begin("3D Representation Settings");
 
-    ImGui::Text("Background Color");
-    ImGui::ColorEdit3("Color", settings.backgroundColor);
+    ImGui::ColorEdit3("Background Color", s_settings.backgroundColor);
 
-    ImGui::Text("Axes Type");
-    const char* axesTypes[] = {"3D Axes", "Cartesian Axes", "Only Dihedral Axes"};
-    ImGui::Combo("Type", &settings.axesType, axesTypes, IM_ARRAYSIZE(axesTypes));
-    renderer.SetAxesType(settings.axesType);
+    const char* axesTypes[] = {"3D Axes", "Cartesian Axes", "Dihedral Axes"};
+    ImGui::Combo("Axes Type", &s_settings.axesType, axesTypes, IM_ARRAYSIZE(axesTypes));
+    renderer.SetAxesType(s_settings.axesType);
 
-    ImGui::Text("Visivibilidad del Sistema Diedrico");
-    ImGui::Checkbox("Mostrar Diedros", &settings.showDihedralSystem);
-    renderer.SetDihedralSystemVisible(settings.showDihedralSystem);
+    ImGui::Checkbox("Show Dihedral System", &s_settings.showDihedralSystem);
+    renderer.SetDihedralSystemVisible(s_settings.showDihedralSystem);
 
-    ImGui::Text("Camera Settings");
-    ImGui::SliderFloat("Mouse Sensitivity", &settings.mouseSensitivity, 0.0f, 2.0f);
-    ImGui::SliderFloat("Camera Distance", &settings.cameraDistance, 1.0f, 20.0f);
+    ImGui::SliderFloat("Mouse Sensitivity", &s_settings.mouseSensitivity, 0.0f, 2.0f);
+    ImGui::SliderFloat("Camera Distance", &s_settings.cameraDistance, 1.0f, 20.0f);
     
-    camera.SetSensitivity(settings.mouseSensitivity);
-    camera.SetDistance(settings.cameraDistance);
+    camera.SetSensitivity(s_settings.mouseSensitivity);
+    camera.SetDistance(s_settings.cameraDistance);
 
     ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)", 
                 camera.GetPosition().x, 
                 camera.GetPosition().y, 
                 camera.GetPosition().z);
 
-    // FPS counter
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-
     ImGui::End();
 }
 
@@ -140,44 +133,46 @@ void DrawMenuBar(GLFWwindow* window) {
 }
 
 void DrawPointsWindow(Renderer& renderer) {
-    ImGui::Begin("Ajustes representación puntos");
+    ImGui::Begin("Point Settings");
     
     static char pointName[128] = "";
     static float pointCoords[3] = {0.0f, 0.0f, 0.0f};
 
-    ImGui::InputText("Point Name", pointName, sizeof(pointName));
-    ImGui::InputFloat3("Point Coordinates", pointCoords);
+    ImGui::InputText("Name", pointName, sizeof(pointName));
+    ImGui::InputFloat3("Coordinates", pointCoords);
 
     if (ImGui::Button("Add Point")) {
-        std::string trimmedName = pointName;
-        trimmedName.erase(trimmedName.find_last_not_of(" \t\n\r\f\v") + 1);
-        trimmedName.erase(0, trimmedName.find_first_not_of(" \t\n\r\f\v"));
+        std::string name = pointName;
+        name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
+        name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
 
-        if (trimmedName.empty()) {
+        if (name.empty()) {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Error");
+            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
         } 
-        else if (std::any_of(points.begin(), points.end(), 
-                            [&](const Point& p) { return p.name == trimmedName; })) {
+        else if (std::any_of(s_points.begin(), s_points.end(), 
+                            [&](const Point& p) { return p.name == name; })) {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Error");
+            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
         } 
         else {
-            points.push_back({trimmedName, {pointCoords[0], pointCoords[1], pointCoords[2]}});
+            s_points.push_back({name, {pointCoords[0], pointCoords[1], pointCoords[2]}});
             pointName[0] = '\0';
             memset(pointCoords, 0, sizeof(pointCoords));
         }
     }
 
     ImGui::SameLine();
-    ImGui::Checkbox("Show Cut Points", &settings.showCutPoints);
-    renderer.SetCutPointVisible(settings.showCutPoints);
+    ImGui::Checkbox("Show Cut Points", &s_settings.showCutPoints);
+    renderer.SetCutPointVisible(s_settings.showCutPoints);
+
+    ImGui::DragFloat("Point Size", &s_settings.pointSize, 0.1f, 0.1f, 100.0f);
 
     ImGui::Separator();
     
-    for (size_t i = 0; i < points.size(); ++i) {
-        auto& point = points[i];
-        ImVec4 pointColor = ImVec4(point.color[0], point.color[1], point.color[2], 1.0f);
+    for (size_t i = 0; i < s_points.size(); ++i) {
+        auto& point = s_points[i];
+        ImVec4 color(point.color[0], point.color[1], point.color[2], 1.0f);
 
         ImGui::Text("%s", point.name.c_str());
         ImGui::SameLine();
@@ -186,16 +181,15 @@ void DrawPointsWindow(Renderer& renderer) {
         ImGui::DragFloat3("", point.coords, 0.1f);
         ImGui::SameLine();
 
-        ImGui::ColorEdit4("pointColor", (float*)&pointColor, 
+        ImGui::ColorEdit4("##Color", (float*)&color, 
                          ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
-
-        point.color[0] = pointColor.x;
-        point.color[1] = pointColor.y;
-        point.color[2] = pointColor.z;
+        point.color[0] = color.x;
+        point.color[1] = color.y;
+        point.color[2] = color.z;
 
         ImGui::SameLine();
         if (ImGui::Button("X")) {
-            points.erase(points.begin() + i);
+            s_points.erase(s_points.begin() + i);
             --i;
         }
         ImGui::PopID();
@@ -205,7 +199,7 @@ void DrawPointsWindow(Renderer& renderer) {
 }
 
 void App::Run() {
-    while (!glfwWindowShouldClose(window)) {
+    while (!glfwWindowShouldClose(m_window)) {
         glfwPollEvents();
 
         // Start ImGui frame
@@ -213,61 +207,55 @@ void App::Run() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Handle mouse input for camera control
+        // Handle mouse input
         double mouseX, mouseY;
-        glfwGetCursorPos(window, &mouseX, &mouseY);
+        glfwGetCursorPos(m_window, &mouseX, &mouseY);
 
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
-            if (!isMousePressed) {
-                isMousePressed = true;
-                lastX = mouseX;
-                lastY = mouseY;
+        if (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+            if (!m_isMousePressed) {
+                m_isMousePressed = true;
+                m_lastMouseX = mouseX;
+                m_lastMouseY = mouseY;
             }
             
-            float deltaX = mouseX - lastX;
-            float deltaY = mouseY - lastY;
+            float deltaX = mouseX - m_lastMouseX;
+            float deltaY = mouseY - m_lastMouseY;
             
-            camera.ProcessMouseMovement(deltaX, deltaY);
+            m_camera.ProcessMouseMovement(deltaX, deltaY);
             
-            lastX = mouseX;
-            lastY = mouseY;
-        } 
-        else {
-            isMousePressed = false;
+            m_lastMouseX = mouseX;
+            m_lastMouseY = mouseY;
+        } else {
+            m_isMousePressed = false;
         }
 
         // Clear screen
-        glClearColor(settings.backgroundColor[0], 
-                    settings.backgroundColor[1], 
-                    settings.backgroundColor[2], 1.0f);
+        glClearColor(s_settings.backgroundColor[0], 
+                    s_settings.backgroundColor[1], 
+                    s_settings.backgroundColor[2], 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Draw UI elements
-        DrawMenuBar(window);
-        DrawSettingsWindow(renderer, camera);
-        DrawPointsWindow(renderer);
+        // Draw UI
+        DrawMenuBar(m_window);
+        DrawSettingsWindow(m_renderer, m_camera);
+        DrawPointsWindow(m_renderer);
 
-        if (settings.showDihedralSystem) { // debug!!! we should move this out of here
-            
-            
+        // Prepare point data
+        std::vector<glm::vec3> pointPositions, pointColors;
+        for (const auto& point : s_points) {
+            pointPositions.emplace_back(point.coords[0]/10, point.coords[2]/10, point.coords[1]/10);
+            pointColors.emplace_back(point.color[0], point.color[1], point.color[2]);
         }
 
-        // Prepare point data for rendering
-        std::vector<glm::vec3> glmPoints, glmColors;
-        for (const auto& point : points) {
-            glmPoints.emplace_back(point.coords[0]/10, point.coords[2]/10, point.coords[1]/10);
-            glmColors.emplace_back(point.color[0], point.color[1], point.color[2]);
-        }
-
-        // Render 3D scene
-        renderer.Render();
-        renderer.DrawPoints(glmPoints, glmColors);
-        renderer.UpdateCamera(camera, width, height);
+        // Render scene
+        m_renderer.Render();
+        m_renderer.DrawPoints(pointPositions, pointColors, s_settings.pointSize);
+        m_renderer.UpdateCamera(m_camera, DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
         // Render ImGui and swap buffers
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(m_window);
     }
 }
 
@@ -276,6 +264,6 @@ void App::Shutdown() {
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(m_window);
     glfwTerminate();
 }

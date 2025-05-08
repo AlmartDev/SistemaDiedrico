@@ -24,7 +24,10 @@ macro(LinkASSIMP TARGET ACCESS)
         # Set the target's folders
         set_target_properties(assimp PROPERTIES FOLDER ${PROJECT_NAME}/thirdparty)
         set_target_properties(IrrXML PROPERTIES FOLDER ${PROJECT_NAME}/thirdparty)
+
+        # HEY: comment this if it is causing issues when compiling on linux! 
         set_target_properties(zlibstatic PROPERTIES FOLDER ${PROJECT_NAME}/thirdparty)
+
     endif()
 
     target_include_directories(${TARGET} ${ACCESS} ${assimp_SOURCE_DIR}/include)
