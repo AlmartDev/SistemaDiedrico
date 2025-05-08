@@ -14,6 +14,18 @@ Requirements:
 - Python3 (Glad needs it)
 - Any C++ 17 compiler
 
+Linux.
+```sh
+git clone https://github.com/almartdev/sistemadiedrico.git # clone this repo to your computer
+cd sistemadiedrico && mkdir build && cd build # makes a folder for the build files
+# (you might need it): sudo apt install zlibstatic 
+cmake ..
+make
+```
+
+Windows.
+Consider using Visual Studio and cmake's UI.
+
 ### TODO: Web build
 I want to make this project accesible to anyone so I've tried to add Emscripten support. It doesn't work at the moment (help me)
 
