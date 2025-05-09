@@ -21,6 +21,8 @@ public:
     void Shutdown();
 
 private:
+    void DrawDihedralViewport();
+
     GLFWwindow* m_window;
     Renderer m_renderer;
     Camera m_camera;

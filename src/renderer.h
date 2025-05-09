@@ -14,7 +14,7 @@ public:
                    float size);
 
     void SetAxesType(int type) { m_axesType = type; }
-    void SetDihedralSystemVisible(bool visible) { m_showDihedral = visible; }
+    void SetDihedralsVisible(bool visible) { m_showDihedral = visible; }
     void SetCutPointVisible(bool visible) { m_showCutPoints = visible; }
 
 private:

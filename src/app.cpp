@@ -27,8 +27,8 @@ namespace {
         float pointSize = 8.0f;
     };
 
-    constexpr int DEFAULT_WIDTH = 1600;
-    constexpr int DEFAULT_HEIGHT = 1200;
+    constexpr int DEFAULT_WIDTH = 1440;
+    constexpr int DEFAULT_HEIGHT = 1080;
 
     std::vector<Point> s_points;
     Settings s_settings;
@@ -89,13 +89,28 @@ void DrawSettingsWindow(Renderer& renderer, Camera& camera) {
     renderer.SetAxesType(s_settings.axesType);
 
     ImGui::Checkbox("Show Dihedral System", &s_settings.showDihedralSystem);
-    renderer.SetDihedralSystemVisible(s_settings.showDihedralSystem);
+    renderer.SetDihedralsVisible(s_settings.showDihedralSystem);
 
     ImGui::SliderFloat("Mouse Sensitivity", &s_settings.mouseSensitivity, 0.0f, 2.0f);
     ImGui::SliderFloat("Camera Distance", &s_settings.cameraDistance, 1.0f, 20.0f);
     
     camera.SetSensitivity(s_settings.mouseSensitivity);
     camera.SetDistance(s_settings.cameraDistance);
+
+    // button for more settings
+    if (ImGui::Button("More Settings")) {
+        ImGui::OpenPopup("More Settings");
+    }
+    if (ImGui::BeginPopupModal("More Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Not yet!");
+        
+        // more settings here!
+
+        if (ImGui::Button("Close", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 
     ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)", 
                 camera.GetPosition().x, 
@@ -122,7 +137,7 @@ void DrawMenuBar(GLFWwindow* window) {
         }
         
         if (ImGui::BeginMenu("About")) {
-            ImGui::Text("Version 0.1");
+            ImGui::Text("Version 0.2");
             ImGui::Text("Made by Alonso Martínez");
             ImGui::Text("@almartdev on GitHub");
             ImGui::EndMenu();
@@ -170,11 +185,12 @@ void DrawPointsWindow(Renderer& renderer) {
 
     ImGui::Separator();
     
+    // Point list
     for (size_t i = 0; i < s_points.size(); ++i) {
         auto& point = s_points[i];
         ImVec4 color(point.color[0], point.color[1], point.color[2], 1.0f);
 
-        ImGui::Text("%s", point.name.c_str());
+        ImGui::Text("%s (%c)", point.name.c_str(), point.name[0]);
         ImGui::SameLine();
 
         ImGui::PushID(static_cast<int>(i));
@@ -196,6 +212,141 @@ void DrawPointsWindow(Renderer& renderer) {
     }
 
     ImGui::End();
+}
+
+void DrawLinesWindow(Renderer& renderer) {
+    ImGui::Begin("Lines Settings");
+
+    ImGui::Text("O");
+
+    ImGui::End();   
+}
+
+void DrawPresetWindow() {
+    ImGui::Begin("Presets");
+    ImGui::Text("Select a preset to load");
+
+    if (ImGui::Button("Points")) {
+        ImGui::OpenPopup("Point Presets");
+    }
+    if (ImGui::BeginPopupModal("Point Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Not yet!");
+        
+        // more settings here!
+
+        if (ImGui::Button("Close", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Lines")) {
+        ImGui::OpenPopup("Lines Presets");
+    }
+    if (ImGui::BeginPopupModal("Lines Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Not yet!");
+        
+        // more settings here!
+
+        if (ImGui::Button("Close", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Planes")) {
+        ImGui::OpenPopup("Planes Presets");
+    }
+    if (ImGui::BeginPopupModal("Planes Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Not yet!");
+        
+        // more settings here!
+
+        if (ImGui::Button("Close", ImVec2(120, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    ImGui::Text("Selected Preset: [PLACEHOLDER]");
+    if (ImGui::Button("Load!")) {
+        // nothing now
+    }
+
+    ImGui::End();
+}
+
+void App::DrawDihedralViewport() { // TODO: this whole function should be maybe on renderer class or even on a new class
+    // Push custom style for this window only
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0)); // Remove padding
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f); // Square corners
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // Dark background
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f)); // Light border
+        
+    ImGui::SetNextWindowSize(ImVec2(500, 350));
+    ImGui::Begin("Dihedral Projection", nullptr, 
+                ImGuiWindowFlags_NoCollapse | 
+                ImGuiWindowFlags_NoScrollbar |
+                ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_NoDecoration |     
+                ImGuiWindowFlags_NoTitleBar);
+    // Get the size of the window
+    ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+
+    // Ground line (L.T.) //
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+    ImVec2 p0 = ImVec2(cursorPos.x, cursorPos.y + viewportSize.y / 2);
+    ImVec2 p1 = ImVec2(cursorPos.x + viewportSize.x, cursorPos.y + viewportSize.y / 2);
+    drawList->AddLine(p0, p1, IM_COL32(255, 255, 255, 255), 2.0f); 
+
+    // draw the two little lines under each side of the ground line that explain that that is the ground line
+    drawList->AddLine(ImVec2(p0.x + 4, p0.y + 5), ImVec2(p0.x + 25, p0.y + 5), IM_COL32(255, 255, 255, 255), 2.0f);
+    drawList->AddLine(ImVec2(p1.x - 4, p1.y + 5), ImVec2(p1.x - 25, p1.y + 5), IM_COL32(255, 255, 255, 255), 2.0f);
+
+    // Origin point
+    // commented because I dont like how it looks right now, but it works!
+    /*
+    ImVec2 p2 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 - 5);
+    ImVec2 p3 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 + 5);
+    drawList->AddLine(p2, p3, IM_COL32(255, 255, 255, 255), 2.0f); // L.T. line
+    */
+    
+    // Draw points in 2D projection
+    for (const auto& point : s_points) {
+
+        float x = point.coords[0] / 2.0f; // careful for the scaling here, this should not be hardcoded! (same with the 3D view)
+        float y1 = point.coords[2] / 3.0f;
+        float y2 = -point.coords[1] / 3.0f;
+
+        // Consider Im calling any point P1 or P2 for a point called "P"
+
+        // no scaling for now, we coma back to this later
+
+        // fist point representation (P1)  
+        ImVec2 pos1(cursorPos.x + viewportSize.x / 2 + x * 10, (cursorPos.y + viewportSize.y / 2) - y1 * 10);
+
+        ImVec2 pos2(cursorPos.x + viewportSize.x / 2 + x * 10, (cursorPos.y + viewportSize.y / 2) - y2 * 10);
+
+        drawList->AddCircleFilled(pos1, s_settings.pointSize / 2,  // this is P2 (vertical plane)
+                                IM_COL32(point.color[0] * 255, point.color[1] * 255, point.color[2] * 255, 255));
+        drawList->AddCircleFilled(pos2, s_settings.pointSize / 2,  // this is P1 (horizontal plane)
+                                IM_COL32(point.color[0] * 255, point.color[1] * 255, point.color[2] * 255, 255));
+        
+        // Draw labels (we only use the first character)
+        ImGui::SetCursorScreenPos(ImVec2(pos2.x - 20, pos2.y - 20)); // P1
+        ImGui::Text("%c1", point.name[0]);
+        ImGui::SetCursorScreenPos(ImVec2(pos1.x - 20, pos1.y - 20)); // P2
+        ImGui::Text("%c2", point.name[0]);
+
+        // Draw projection lines
+        drawList->AddLine(pos1, pos2, IM_COL32(255, 255, 255, 100), 1.0f);
+    }
+    
+    ImGui::End();
+
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(2);
 }
 
 void App::Run() {
@@ -238,12 +389,18 @@ void App::Run() {
         // Draw UI
         DrawMenuBar(m_window);
         DrawSettingsWindow(m_renderer, m_camera);
+
+        DrawPresetWindow();
+
         DrawPointsWindow(m_renderer);
+        DrawLinesWindow(m_renderer);
+        
+        DrawDihedralViewport(); // Draw the new 2D viewport
 
         // Prepare point data
         std::vector<glm::vec3> pointPositions, pointColors;
         for (const auto& point : s_points) {
-            pointPositions.emplace_back(point.coords[0]/10, point.coords[2]/10, point.coords[1]/10);
+            pointPositions.emplace_back(point.coords[0]/50, point.coords[2]/50, point.coords[1]/50);
             pointColors.emplace_back(point.color[0], point.color[1], point.color[2]);
         }
 
@@ -251,7 +408,7 @@ void App::Run() {
         m_renderer.Render();
         m_renderer.DrawPoints(pointPositions, pointColors, s_settings.pointSize);
         m_renderer.UpdateCamera(m_camera, DEFAULT_WIDTH, DEFAULT_HEIGHT);
-
+        
         // Render ImGui and swap buffers
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
