@@ -9,9 +9,15 @@ public:
     bool Initialize();
     void Render();
     void UpdateCamera(const Camera& camera, int width, int height);
+
     void DrawPoints(const std::vector<glm::vec3>& points, 
-                   const std::vector<glm::vec3>& colors, 
-                   float size);
+                    const std::vector<glm::vec3>& colors, 
+                    float size);
+    void DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lines,
+                    const std::vector<glm::vec3>& colors, 
+                    float thickness);
+
+    // void DrawPlanes(); // not yet implemented
 
     void SetAxesType(int type) { m_axesType = type; }
     void SetDihedralsVisible(bool visible) { m_showDihedral = visible; }

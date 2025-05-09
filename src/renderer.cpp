@@ -169,6 +169,62 @@ void Renderer::DrawPoints(const std::vector<glm::vec3>& points,
     glDeleteBuffers(1, &colorsVBO);
 }
 
+void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lines, 
+                         const std::vector<glm::vec3>& colors, 
+                         float thickness) {
+    
+    if (lines.empty() || lines.size() != colors.size()) return;
+
+    GLuint linesVAO, linesVBO;
+    glGenVertexArrays(1, &linesVAO);
+    glGenBuffers(1, &linesVBO);
+    
+    glUseProgram(s_shaderProgram);
+    glLineWidth(thickness);
+
+    for (size_t i = 0; i < lines.size(); i++) { // TODO: Thickness is only working for the cut lines, not the main line
+        // Prepare line vertices (start and end points)
+        const auto& line = lines[i];
+        std::vector<glm::vec3> lineVertices = {line.first, line.second};
+
+        // Create cut lines (projections to y=0 and z=0 planes)
+        std::vector<glm::vec3> cutLines = {
+            glm::vec3(line.first.x, 0.0f, line.first.z),  // y=0 start
+            glm::vec3(line.second.x, 0.0f, line.second.z), // y=0 end
+            glm::vec3(line.first.x, line.first.y, 0.0f),  // z=0 start
+            glm::vec3(line.second.x, line.second.y, 0.0f)  // z=0 end
+        };
+
+        if (m_showCutPoints) {
+            // Draw cut lines (projections)
+            glBindVertexArray(linesVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, linesVBO);
+            glBufferData(GL_ARRAY_BUFFER, cutLines.size() * sizeof(glm::vec3), cutLines.data(), GL_STATIC_DRAW);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+            glEnableVertexAttribArray(0);
+
+            glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), 0.0f, 1.0f, 0.0f);
+            glDrawArrays(GL_LINES, 0, 2);  // y=0 projection
+            glDrawArrays(GL_LINES, 2, 2);  // z=0 projection
+        }
+
+        // Draw main line
+        glBindVertexArray(linesVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, linesVBO);
+        glBufferData(GL_ARRAY_BUFFER, lineVertices.size() * sizeof(glm::vec3), lineVertices.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+        glEnableVertexAttribArray(0);
+
+        glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), colors[i].r, colors[i].g, colors[i].b);
+        glLineWidth(1.0f); // original line width (so it doesnt mess up with the cartesian lines) TODO: change this with a parameter
+        glDrawArrays(GL_LINES, 0, 2);
+    }
+    
+    glBindVertexArray(0);
+    glDeleteVertexArrays(1, &linesVAO);
+    glDeleteBuffers(1, &linesVBO);
+}
+
 void Renderer::DrawAxes() {
     glUseProgram(s_shaderProgram);
     glBindVertexArray(s_VAO);

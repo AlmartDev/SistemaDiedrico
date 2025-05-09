@@ -6,7 +6,7 @@
 
 class Camera {
 public:
-    Camera(float distance = 3.0f);
+    Camera(float distance = 6.5f); // default distance if not specified on app.cpp
     
     glm::vec3 GetPosition() const;
     glm::mat4 GetViewMatrix() const;
