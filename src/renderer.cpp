@@ -195,7 +195,7 @@ void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lin
             glm::vec3(line.second.x, line.second.y, 0.0f)  // z=0 end
         };
 
-        if (m_showCutPoints) {
+        if (m_showCutLines) {
             // Draw cut lines (projections)
             glBindVertexArray(linesVAO);
             glBindBuffer(GL_ARRAY_BUFFER, linesVBO);

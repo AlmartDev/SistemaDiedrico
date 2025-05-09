@@ -31,6 +31,7 @@ namespace {
 
         bool showDihedralSystem = true;
         bool showCutPoints = true;
+        bool showCutLines = true;
 
         float mouseSensitivity = 0.2f;
         float cameraDistance = 5.5f;
@@ -140,7 +141,16 @@ void DrawMenuBar(GLFWwindow* window) {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             ImGui::MenuItem("Save", nullptr, false);
+            ImGui::MenuItem("Save As", nullptr, false);
             ImGui::MenuItem("Load", nullptr, false);
+
+            if (ImGui::BeginMenu("Load Preset")) {
+                ImGui::MenuItem("Point", nullptr, false);
+                ImGui::MenuItem("Line", nullptr, false);
+                ImGui::MenuItem("Plane", nullptr, false);
+
+                ImGui::EndMenu();
+            }
             ImGui::EndMenu();
         }
         
@@ -280,18 +290,22 @@ void DrawLinesWindow(Renderer& renderer) {
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
             } 
             // check for points with the same coords (same point really)
-            else if (std::any_of(s_lines.begin(), s_lines.end(), [&](const Line& l) { return s_points[selectedPoint1].name == s_points[selectedPoint1].name && 
-                                                        s_points[selectedPoint2].name == s_points[selectedPoint2].name; })) {
+            else if (s_points[selectedPoint1].coords == s_points[selectedPoint2].coords) {
                 ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Same points");
-            }
+                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Points are the same");
+            } 
             else { // add line!
                 s_lines.push_back({lineName, 
                                    selectedPoint1, 
-                                   selectedPoint2});   
+                                   selectedPoint2});  
+                                   
+                lineName[0] = '\0';
             }
         }
     }
+    ImGui::SameLine();
+    ImGui::Checkbox("Show Cut Lines", &s_settings.showCutLines);
+    renderer.SetCutLineVisible(s_settings.showCutLines);
 
     ImGui::Separator();
     
@@ -301,10 +315,8 @@ void DrawLinesWindow(Renderer& renderer) {
         ImVec4 color(line.color[0], line.color[1], line.color[2], 1.0f);
 
         ImGui::Text("%s (%c): ", line.name.c_str(), line.name[0]);
-
         ImGui::SameLine();
-
-        ImGui::Text("%s --> %s", s_points[selectedPoint1].name.c_str(), s_points[selectedPoint2].name.c_str());
+        ImGui::Text("%s --> %s", s_points[line.point1index].name.c_str(), s_points[line.point2index].name.c_str());
 
         ImGui::SameLine();
         ImGui::PushID(static_cast<int>(i));
@@ -323,6 +335,12 @@ void DrawLinesWindow(Renderer& renderer) {
     }
 
     ImGui::End();   
+}
+
+void DrawPlanesWindow(Renderer& renderer) {
+    ImGui::Begin("Planes Settings");
+    ImGui::Text("Not yet!");
+    ImGui::End();
 }
 
 void DrawPresetWindow() { // TODO: refactor this mess
@@ -566,6 +584,10 @@ void App::Run() {
             m_scrollY = 0.0; // Reset scroll value after processing
         }
 
+        // close on esc key, not big fan but we'll keep it for now
+        if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            glfwSetWindowShouldClose(m_window, true);
+        }
         // Clear screen
         glClearColor(s_settings.backgroundColor[0], 
                     s_settings.backgroundColor[1], 
@@ -578,8 +600,10 @@ void App::Run() {
 
         DrawPresetWindow();
 
+        // TODO: refactor this because the renderer argument shouldnt be needed, at least for lines.
         DrawPointsWindow(m_renderer);
         DrawLinesWindow(m_renderer);
+        DrawPlanesWindow(m_renderer);
         
         DrawDihedralViewport(); // Draw the new 2D viewport
 

@@ -21,14 +21,18 @@ public:
 
     void SetAxesType(int type) { m_axesType = type; }
     void SetDihedralsVisible(bool visible) { m_showDihedral = visible; }
+    
     void SetCutPointVisible(bool visible) { m_showCutPoints = visible; }
+    void SetCutLineVisible(bool visible) { m_showCutLines = visible; }
 
 private:
     void DrawAxes();
 
     int m_axesType = 0;
     bool m_showDihedral = false;
+
     bool m_showCutPoints = true;
+    bool m_showCutLines = true;
 
     glm::mat4 m_viewMatrix;
     glm::mat4 m_projectionMatrix;
