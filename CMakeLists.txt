@@ -1,3 +1,4 @@
+# TODO: Finish web support!
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
 # Web-specific configuration must come before project()
@@ -111,6 +112,11 @@ ImGui(${PROJECT_NAME} PRIVATE)
 
 include(${CMAKE_DIR}/LinkGLM.cmake)
 LinkGLM(${PROJECT_NAME} PRIVATE)
+
+# added json support with nlohmann/json
+include(${CMAKE_DIR}/LinkJSON.cmake)
+LinkJSON(${PROJECT_NAME} PRIVATE)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # C++ standard configuration
 set_target_properties(${PROJECT_NAME} PROPERTIES

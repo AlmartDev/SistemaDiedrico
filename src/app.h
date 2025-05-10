@@ -3,6 +3,7 @@
 
 #include "renderer.h"
 #include "camera.h"
+#include "json.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -26,6 +27,17 @@ private:
     GLFWwindow* m_window;
     Renderer m_renderer;
     Camera m_camera;
+
+    JsonHandler m_jsonHandler;
+    bool m_jsonLoaded = false;
+
+    ImFont* font;
+
+    int DEFAULT_WIDTH = 1440;
+    int DEFAULT_HEIGHT = 1080;
+
+    int m_windowWidth = DEFAULT_WIDTH;
+    int m_windowHeight = DEFAULT_HEIGHT;
 
     // Input state
     bool m_isMousePressed;

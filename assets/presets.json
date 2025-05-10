@@ -1,0 +1,134 @@
+{
+    "presets": {
+        "points": 
+        [
+            {
+                "name": "A",
+                "description": "Primer Cuadrante (I)",
+                "coords": {
+                    "d": -30,
+                    "a": 30,
+                    "c": 15
+                }
+            },
+            {
+                "name": "B",
+                "description": "Segundo Cuadrante (II)",
+                "coords": {
+                    "d": -10,
+                    "a": -22,
+                    "c": 40
+                }
+            },
+            {
+                "name": "C",
+                "description": "Tercer Cuadrante (III)",
+                "coords": {
+                    "d": 10,
+                    "a": -15,
+                    "c": -31
+                }
+            },
+            {
+                "name": "D",
+                "description": "Cuarto Cuadrante (IV)",
+                "coords": {
+                    "d": 30,
+                    "a": 25,
+                    "c": -40
+                }
+            }
+        ],
+        "lines": 
+        [
+            {
+                "name": "r",
+                "description": "Recta Horizontal",
+                "point1": {
+                    "d": 20,
+                    "a": 30,
+                    "c": 15
+                },
+                "point2": {
+                    "d": -20,
+                    "a": -25,
+                    "c": 15
+                }
+            },
+            {
+                "name": "s",
+                "description": "Recta Frontal",
+                "point1": {
+                    "d": 30,
+                    "a": 15,
+                    "c": -30
+                },
+                "point2": {
+                    "d": -30,
+                    "a": 15,
+                    "c": 40
+                }
+            },
+            {
+                "name": "t",
+                "description": "Recta que corta por LT",
+                "point1": {
+                    "d": 30,
+                    "a": 30,
+                    "c": 30
+                },
+                "point2": {
+                    "d": -30,
+                    "a": -30,
+                    "c": -30
+                }
+            },
+            {
+                "name": "v",
+                "description": "Recta paralela a la LT",
+                "point1": {
+                    "d": -40,
+                    "a": 25,
+                    "c": 25
+                },
+                "point2": {
+                    "d": 40,
+                    "a": 25,
+                    "c": 25
+                }
+            },
+            {
+                "name": "v",
+                "description": "Recta vertical",
+                "point1": {
+                    "d": 10,
+                    "a": 25,
+                    "c": 40
+                },
+                "point2": {
+                    "d": 10,
+                    "a": 25,
+                    "c": -40
+                }
+            },
+            {
+                "name": "w",
+                "description": "Recta de punta",
+                "point1": {
+                    "d": -10,
+                    "a": -40,
+                    "c": 20
+                },
+                "point2": {
+                    "d": -10,
+                    "a": 40,
+                    "c": 20
+                }
+            }
+        ],
+        "planes": 
+        [
+            
+        ]
+    }
+}

@@ -252,9 +252,11 @@ void Renderer::DrawAxes() {
 
 void Renderer::UpdateCamera(const Camera& camera, int width, int height) {
     m_viewMatrix = camera.GetViewMatrix();
+    if (height == 0) height = 1; // Prevent division by zero
+    
     float aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     m_projectionMatrix = glm::perspective(glm::radians(55.0f), aspectRatio, 0.1f, 100.0f);
-
+    
     glUseProgram(s_shaderProgram);
     glUniformMatrix4fv(glGetUniformLocation(s_shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(m_viewMatrix));
     glUniformMatrix4fv(glGetUniformLocation(s_shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));

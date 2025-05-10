@@ -38,10 +38,9 @@ namespace {
 
         float pointSize = 8.0f;
         float lineThickness = 3.0f;
-    };
 
-    constexpr int DEFAULT_WIDTH = 1440;
-    constexpr int DEFAULT_HEIGHT = 1080;
+        const std::string& m_default_path = ".assets/presets.json"; // make sure to add presets.json to the compiled program
+    };
 
     static double m_scrollY;
 
@@ -51,7 +50,7 @@ namespace {
 }
 
 App::App() : m_window(nullptr), m_isMousePressed(false), 
-             m_lastMouseX(0), m_lastMouseY(0) {}
+             m_lastMouseX(0), m_lastMouseY(0), m_jsonHandler("presets.json") {}
 
 App::~App() = default;
 
@@ -67,6 +66,14 @@ bool App::Initialize() {
         glfwTerminate();
         return false;
     }
+
+    // Set resize callback
+    glfwSetWindowUserPointer(m_window, this);
+    glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* window, int width, int height) {
+        auto app = static_cast<App*>(glfwGetWindowUserPointer(window));
+        app->m_windowWidth = width;
+        app->m_windowHeight = height;
+    });
 
     glfwMakeContextCurrent(m_window);
 
@@ -84,12 +91,27 @@ bool App::Initialize() {
     ImGui::StyleColorsDark();
     SetCustomStyle();
 
+    // font
+    ImGuiIO& io = ImGui::GetIO();
+    font = io.Fonts->AddFontFromFileTTF("./assets/Roboto-Regular.ttf", 14);
+
     ImGui_ImplGlfw_InitForOpenGL(m_window, true);
     ImGui_ImplOpenGL3_Init("#version 130");
 
     if (!m_renderer.Initialize()) {
         std::cerr << "Failed to initialize renderer\n";
         return false;
+    }
+
+    // Load JSON file
+    m_jsonHandler = JsonHandler(s_settings.m_default_path);
+
+    if (!m_jsonHandler.LoadJson()) {
+        std::cerr << "Failed to load JSON file\n";
+        m_jsonLoaded = false;
+    } else {
+
+        m_jsonLoaded = true;
     }
     
     return true;
@@ -143,14 +165,6 @@ void DrawMenuBar(GLFWwindow* window) {
             ImGui::MenuItem("Save", nullptr, false);
             ImGui::MenuItem("Save As", nullptr, false);
             ImGui::MenuItem("Load", nullptr, false);
-
-            if (ImGui::BeginMenu("Load Preset")) {
-                ImGui::MenuItem("Point", nullptr, false);
-                ImGui::MenuItem("Line", nullptr, false);
-                ImGui::MenuItem("Plane", nullptr, false);
-
-                ImGui::EndMenu();
-            }
             ImGui::EndMenu();
         }
         
@@ -162,7 +176,7 @@ void DrawMenuBar(GLFWwindow* window) {
         }
         
         if (ImGui::BeginMenu("About")) {
-            ImGui::Text("Version 0.2");
+            ImGui::Text("Version 0.3");
             ImGui::Text("Made by Alonso Martínez");
             ImGui::Text("@almartdev on GitHub");
             ImGui::EndMenu();
@@ -172,231 +186,292 @@ void DrawMenuBar(GLFWwindow* window) {
     }
 }
 
-void DrawPointsWindow(Renderer& renderer) {
-    ImGui::Begin("Point Settings");
-    
-    static char pointName[128] = "";
-    static float pointCoords[3] = {0.0f, 0.0f, 0.0f};
+void DrawTabsWindow(Renderer& renderer) {
+    ImGui::Begin("Properties");
 
-    ImGui::InputText("Name", pointName, sizeof(pointName));
-    ImGui::InputFloat3("Coordinates", pointCoords);
+    if (ImGui::BeginTabBar("Tabs")) {
+        if (ImGui::BeginTabItem("Points"))  // Points -----------
+        {  
+            static char pointName[128] = "";
+            static float pointCoords[3] = {0.0f, 0.0f, 0.0f};
 
-    if (ImGui::Button("Add Point")) {
-        std::string name = pointName;
-        name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
-        name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
+            ImGui::InputText("Name", pointName, sizeof(pointName));
+            ImGui::InputFloat3("Coordinates", pointCoords);
 
-        if (name.empty()) {
-            ImGui::SameLine();
-            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
-        } 
-        else if (std::any_of(s_points.begin(), s_points.end(), 
-                            [&](const Point& p) { return p.name == name; })) {
-            ImGui::SameLine();
-            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
-        } 
-        else {
-            s_points.push_back({name, {pointCoords[0], pointCoords[1], pointCoords[2]}});
-            pointName[0] = '\0';
-            memset(pointCoords, 0, sizeof(pointCoords));
-        }
-    }
+            if (ImGui::Button("Add Point")) {
+                std::string name = pointName;
+                name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
+                name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
 
-    ImGui::SameLine();
-    ImGui::Checkbox("Show Cut Points", &s_settings.showCutPoints);
-    renderer.SetCutPointVisible(s_settings.showCutPoints);
-
-    ImGui::DragFloat("Point Size", &s_settings.pointSize, 0.1f, 0.1f, 100.0f);
-
-    ImGui::Separator();
-    
-    // Point list
-    for (size_t i = 0; i < s_points.size(); ++i) {
-        auto& point = s_points[i];
-        ImVec4 color(point.color[0], point.color[1], point.color[2], 1.0f);
-
-        ImGui::Text("%s (%c)", point.name.c_str(), point.name[0]);
-        ImGui::SameLine();
-
-        ImGui::PushID(static_cast<int>(i));
-        ImGui::DragFloat3("", point.coords, 0.1f);
-        ImGui::SameLine();
-
-        ImGui::ColorEdit4("##Color", (float*)&color, 
-                         ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
-        point.color[0] = color.x;
-        point.color[1] = color.y;
-        point.color[2] = color.z;
-
-        ImGui::SameLine();
-        if (ImGui::Button("X")) {
-            s_points.erase(s_points.begin() + i);
-            --i;
-        }
-        ImGui::PopID();
-    }
-
-    ImGui::End();
-}
-
-void DrawLinesWindow(Renderer& renderer) {
-    ImGui::Begin("Lines Settings");
-
-    ImGui::Text("Select two points to create a line");
-
-    static char lineName[128] = "";
-    ImGui::InputText("Name", lineName, sizeof(lineName));
-
-    // dropdown to select two points
-    static int selectedPoint1 = -1;
-    static int selectedPoint2 = -1;
-
-    ImGui::Combo("Point 1", &selectedPoint1, 
-                 [](void* data, int idx, const char** out_text) {
-                     auto& points = *static_cast<std::vector<Point>*>(data);
-                     if (idx < 0 || idx >= static_cast<int>(points.size())) {
-                         return false;
-                     }
-                     *out_text = points[idx].name.c_str();
-                     return true;
-                 }, &s_points, s_points.size());
-    ImGui::Combo("Point 2", &selectedPoint2, 
-                 [](void* data, int idx, const char** out_text) {
-                     auto& points = *static_cast<std::vector<Point>*>(data);
-                     if (idx < 0 || idx >= static_cast<int>(points.size())) {
-                         return false;
-                     }
-                     *out_text = points[idx].name.c_str();
-                     return true;
-                 }, &s_points, s_points.size());
-
-    // thickness slider
-    ImGui::DragFloat("Line Thickness", &s_settings.lineThickness, 0.1f, 0.1f, 100.0f);
-    
-    if (ImGui::Button("Add Line")) {
-        if (selectedPoint1 != selectedPoint2) {
-
-            std::string name = lineName;
-            name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
-            name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
-    
-            if (name.empty()) {
-                ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
-            } 
-            else if (std::any_of(s_points.begin(), s_points.end(), 
-                                [&](const Point& p) { return p.name == name; })) {
-                ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
-            } 
-            // check for points with the same coords (same point really)
-            else if (s_points[selectedPoint1].coords == s_points[selectedPoint2].coords) {
-                ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Points are the same");
-            } 
-            else { // add line!
-                s_lines.push_back({lineName, 
-                                   selectedPoint1, 
-                                   selectedPoint2});  
-                                   
-                lineName[0] = '\0';
+                if (name.empty()) {
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
+                } 
+                else if (std::any_of(s_points.begin(), s_points.end(), 
+                                    [&](const Point& p) { return p.name == name; })) {
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
+                } 
+                else {
+                    s_points.push_back({name, {pointCoords[0], pointCoords[1], pointCoords[2]}});
+                    pointName[0] = '\0';
+                    memset(pointCoords, 0, sizeof(pointCoords));
+                }
             }
+
+            ImGui::SameLine();
+            ImGui::Checkbox("Show Cut Points", &s_settings.showCutPoints);
+            renderer.SetCutPointVisible(s_settings.showCutPoints);
+
+            ImGui::DragFloat("Point Size", &s_settings.pointSize, 0.1f, 0.1f, 100.0f);
+
+            ImGui::Separator();
+            
+            // Point list
+            for (size_t i = 0; i < s_points.size(); ++i) {
+                auto& point = s_points[i];
+                ImVec4 color(point.color[0], point.color[1], point.color[2], 1.0f);
+
+                ImGui::Text("%s (%c)", point.name.c_str(), point.name[0]);
+                ImGui::SameLine();
+
+                ImGui::PushID(static_cast<int>(i));
+                ImGui::DragFloat3("", point.coords, 0.1f);
+                ImGui::SameLine();
+
+                ImGui::ColorEdit4("##Color", (float*)&color, 
+                                ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+                point.color[0] = color.x;
+                point.color[1] = color.y;
+                point.color[2] = color.z;
+
+                ImGui::SameLine();
+                if (ImGui::Button("X")) {
+                    s_points.erase(s_points.begin() + i);
+                    --i;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTabItem();
         }
-    }
-    ImGui::SameLine();
-    ImGui::Checkbox("Show Cut Lines", &s_settings.showCutLines);
-    renderer.SetCutLineVisible(s_settings.showCutLines);
+        if (ImGui::BeginTabItem("Lines")) // Lines -------------
+        { 
+            ImGui::Text("Select two points to create a line");
 
-    ImGui::Separator();
-    
-    // Line list
-    for (size_t i = 0; i < s_lines.size(); ++i) {
-        auto& line = s_lines[i];
-        ImVec4 color(line.color[0], line.color[1], line.color[2], 1.0f);
+            static char lineName[128] = "";
+            ImGui::InputText("Name", lineName, sizeof(lineName));
 
-        ImGui::Text("%s (%c): ", line.name.c_str(), line.name[0]);
-        ImGui::SameLine();
-        ImGui::Text("%s --> %s", s_points[line.point1index].name.c_str(), s_points[line.point2index].name.c_str());
+            // dropdown to select two points
+            static int selectedPoint1 = -1;
+            static int selectedPoint2 = -1;
 
-        ImGui::SameLine();
-        ImGui::PushID(static_cast<int>(i));
-        ImGui::ColorEdit4("##Color", (float*)&color, 
-                         ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
-        line.color[0] = color.x;
-        line.color[1] = color.y;
-        line.color[2] = color.z;
+            ImGui::Combo("Point 1", &selectedPoint1, 
+                        [](void* data, int idx, const char** out_text) {
+                            auto& points = *static_cast<std::vector<Point>*>(data);
+                            if (idx < 0 || idx >= static_cast<int>(points.size())) {
+                                return false;
+                            }
+                            *out_text = points[idx].name.c_str();
+                            return true;
+                        }, &s_points, s_points.size());
+            ImGui::Combo("Point 2", &selectedPoint2, 
+                        [](void* data, int idx, const char** out_text) {
+                            auto& points = *static_cast<std::vector<Point>*>(data);
+                            if (idx < 0 || idx >= static_cast<int>(points.size())) {
+                                return false;
+                            }
+                            *out_text = points[idx].name.c_str();
+                            return true;
+                        }, &s_points, s_points.size());
 
-        ImGui::SameLine();
-        if (ImGui::Button("X")) {
-            s_lines.erase(s_lines.begin() + i);
-            --i;
+            // thickness slider
+            ImGui::DragFloat("Line Thickness", &s_settings.lineThickness, 0.1f, 0.1f, 100.0f);
+            
+            if (ImGui::Button("Add Line")) {
+                if (selectedPoint1 != selectedPoint2) {
+
+                    std::string name = lineName;
+                    name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
+                    name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
+            
+                    if (name.empty()) {
+                        ImGui::SameLine();
+                        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
+                    } 
+                    else if (std::any_of(s_points.begin(), s_points.end(), 
+                                        [&](const Point& p) { return p.name == name; })) {
+                        ImGui::SameLine();
+                        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
+                    } 
+                    // check for points with the same coords (same point really)
+                    else if (s_points[selectedPoint1].coords == s_points[selectedPoint2].coords) {
+                        ImGui::SameLine();
+                        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Points are the same");
+                    } 
+                    else { // add line!
+                        s_lines.push_back({lineName, 
+                                        selectedPoint1, 
+                                        selectedPoint2});  
+                                        
+                        lineName[0] = '\0';
+                    }
+                }
+            }
+            ImGui::SameLine();
+            ImGui::Checkbox("Show Cut Lines", &s_settings.showCutLines);
+            renderer.SetCutLineVisible(s_settings.showCutLines);
+
+            ImGui::Separator();
+            
+            // Line list
+            for (size_t i = 0; i < s_lines.size(); ++i) {
+                auto& line = s_lines[i];
+                ImVec4 color(line.color[0], line.color[1], line.color[2], 1.0f);
+
+                ImGui::Text("%s (%c): ", line.name.c_str(), line.name[0]);
+                ImGui::SameLine();
+                ImGui::Text("%s --> %s", s_points[line.point1index].name.c_str(), s_points[line.point2index].name.c_str());
+
+                ImGui::SameLine();
+                ImGui::PushID(static_cast<int>(i));
+                ImGui::ColorEdit4("##Color", (float*)&color, 
+                                ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+                line.color[0] = color.x;
+                line.color[1] = color.y;
+                line.color[2] = color.z;
+
+                ImGui::SameLine();
+                if (ImGui::Button("X")) {
+                    s_lines.erase(s_lines.begin() + i);
+                    --i;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTabItem();
         }
-        ImGui::PopID();
+        if (ImGui::BeginTabItem("Planes")) {
+            // DrawPlanesWindow(renderer);
+            ImGui::Text("Not yet!");
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
     }
 
-    ImGui::End();   
-}
-
-void DrawPlanesWindow(Renderer& renderer) {
-    ImGui::Begin("Planes Settings");
-    ImGui::Text("Not yet!");
     ImGui::End();
 }
 
-void DrawPresetWindow() { // TODO: refactor this mess
-    ImGui::Begin("Presets");
+void DrawPresetWindow(JsonHandler& jsonHandler, bool& jsonLoaded) {
+    ImGui::Begin("Presets", nullptr);
     ImGui::Text("Select a preset to load");
 
-    // TODO:
-    // try to read the presets.json file and load the presets here
-    // use a library like nlohmann/json for this
-    // we will create another class for this later
-
-    if (ImGui::Button("Points")) {
-        ImGui::OpenPopup("Point Presets");
+    if (!jsonLoaded) {
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Failed to load presets!");
+        ImGui::End();
+        return;
     }
-    if (ImGui::BeginPopupModal("Point Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Not yet!");
-        
-        // more settings here!
 
+    // Draw preset buttons
+    if (ImGui::Button("Points")) {
+        ImGui::OpenPopup("Points Presets");
+    }
+    
+    if (ImGui::BeginPopupModal("Points Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Available Point Presets:");
+        ImGui::Separator();
+        
+        auto pointPresets = jsonHandler.GetPointPresets();
+        if (pointPresets.empty()) {
+            ImGui::Text("No point presets found");
+        } else {
+            for (const auto& preset : pointPresets) {
+                std::string label = preset["name"].get<std::string>() + " - " + preset["description"].get<std::string>();
+                if (ImGui::Button(label.c_str())) {
+                    // Add the point to the scene
+                    s_points.push_back({
+                        preset["name"],
+                        {
+                            preset["coords"]["d"].get<float>(),
+                            preset["coords"]["a"].get<float>(),
+                            preset["coords"]["c"].get<float>()
+                        }
+                    });
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+        }
+        
+        ImGui::Separator();
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
     }
+
     ImGui::SameLine();
+
     if (ImGui::Button("Lines")) {
         ImGui::OpenPopup("Lines Presets");
     }
+    
     if (ImGui::BeginPopupModal("Lines Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Not yet!");
+        ImGui::Text("Available Line Presets:");
+        ImGui::Separator();
         
-        // more settings here!
-
+        auto linePresets = jsonHandler.GetLinePresets();
+        if (linePresets.empty()) {
+            ImGui::Text("No line presets found");
+        } else {
+            for (const auto& preset : linePresets) {
+                std::string label = preset["name"].get<std::string>() + " - " + preset["description"].get<std::string>();
+                if (ImGui::Button(label.c_str())) {
+                    // Add the line to the scene
+                    s_lines.push_back({
+                        preset["name"],
+                        static_cast<int>(s_points.size()), // Index of first point
+                        static_cast<int>(s_points.size() + 1) // Index of second point
+                    });
+                    // Add the two points for the line
+                    s_points.push_back({
+                        ("A_" + preset["name"].get<std::string>()).c_str(),
+                        {
+                            preset["point1"]["d"].get<float>(),
+                            preset["point1"]["a"].get<float>(),
+                            preset["point1"]["c"].get<float>()
+                        }
+                    });
+                    s_points.push_back({
+                        ("B_" + preset["name"].get<std::string>()).c_str(),
+                        {
+                            preset["point2"]["d"].get<float>(),
+                            preset["point2"]["a"].get<float>(),
+                            preset["point2"]["c"].get<float>()
+                        }
+                    });
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+        }
+        
+        ImGui::Separator();
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
     }
+
     ImGui::SameLine();
+
     if (ImGui::Button("Planes")) {
         ImGui::OpenPopup("Planes Presets");
     }
+    
     if (ImGui::BeginPopupModal("Planes Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Not yet!");
-        
-        // more settings here!
-
+        ImGui::Text("Plane presets coming soon!");
+        ImGui::Separator();
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
-    }
-
-    ImGui::Text("Selected Preset: [PLACEHOLDER]");
-    if (ImGui::Button("Load!")) {
-        // nothing now
     }
 
     ImGui::End();
@@ -409,13 +484,11 @@ void App::DrawDihedralViewport() { // TODO: this whole function should be maybe 
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // Dark background
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f)); // Light border
         
-    ImGui::SetNextWindowSize(ImVec2(500, 350));
     ImGui::Begin("Dihedral Projection", nullptr, 
                 ImGuiWindowFlags_NoCollapse | 
                 ImGuiWindowFlags_NoScrollbar |
-                ImGuiWindowFlags_NoResize |
-                ImGuiWindowFlags_NoDecoration |     
-                ImGuiWindowFlags_NoTitleBar);
+                ImGuiWindowFlags_NoTitleBar );
+
     // Get the size of the window
     ImVec2 viewportSize = ImGui::GetContentRegionAvail();
 
@@ -431,12 +504,9 @@ void App::DrawDihedralViewport() { // TODO: this whole function should be maybe 
     drawList->AddLine(ImVec2(p1.x - 4, p1.y + 5), ImVec2(p1.x - 25, p1.y + 5), IM_COL32(255, 255, 255, 255), 2.0f);
 
     // Origin point
-    // commented because I dont like how it looks right now, but it works!
-    /*
     ImVec2 p2 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 - 5);
     ImVec2 p3 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 + 5);
     drawList->AddLine(p2, p3, IM_COL32(255, 255, 255, 255), 2.0f); // L.T. line
-    */
     
     // Draw points in 2D projection
     for (const auto& point : s_points) {
@@ -545,12 +615,14 @@ void App::DrawDihedralViewport() { // TODO: this whole function should be maybe 
 void App::Run() {
     while (!glfwWindowShouldClose(m_window)) {
         glfwPollEvents();
-
+        
+        // Get current window size
+        glfwGetWindowSize(m_window, &m_windowWidth, &m_windowHeight);
+        
         // Start ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-
         // Handle mouse input
         double mouseX, mouseY;
         glfwGetCursorPos(m_window, &mouseX, &mouseY);
@@ -558,17 +630,17 @@ void App::Run() {
         if (glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
             if (!m_isMousePressed) {
                 m_isMousePressed = true;
-                m_lastMouseX = mouseX;
-                m_lastMouseY = mouseY;
+                m_lastMouseX = static_cast<float>(mouseX);
+                m_lastMouseY = static_cast<float>(mouseY);
             }
             
-            float deltaX = mouseX - m_lastMouseX;
-            float deltaY = mouseY - m_lastMouseY;
+            float deltaX = static_cast<float>(mouseX) - m_lastMouseX;
+            float deltaY = static_cast<float>(mouseY) - m_lastMouseY;
             
             m_camera.ProcessMouseMovement(deltaX, deltaY);
             
-            m_lastMouseX = mouseX;
-            m_lastMouseY = mouseY;
+            m_lastMouseX = static_cast<float>(mouseX);
+            m_lastMouseY = static_cast<float>(mouseY);
         } else {
             m_isMousePressed = false;
         }
@@ -580,7 +652,7 @@ void App::Run() {
         glfwSetScrollCallback(m_window, scrollCallback);
 
         if (m_scrollY != 0) {
-            m_camera.SetDistance(m_camera.GetDistance() - m_scrollY * .3f);
+            m_camera.SetDistance(m_camera.GetDistance() - static_cast<float>(m_scrollY) * .3f);
             m_scrollY = 0.0; // Reset scroll value after processing
         }
 
@@ -588,22 +660,35 @@ void App::Run() {
         if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             glfwSetWindowShouldClose(m_window, true);
         }
+        
         // Clear screen
         glClearColor(s_settings.backgroundColor[0], 
                     s_settings.backgroundColor[1], 
                     s_settings.backgroundColor[2], 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        // Set viewport to center of the window
+        int viewportWidth = m_windowWidth;
+        int viewportHeight = m_windowHeight;
+        
+        // fixed aspect ratio:
+        // int size = std::min(m_windowWidth, m_windowHeight);
+        // viewportWidth = size;
+        // viewportHeight = size;
+        
+        int viewportX = (m_windowWidth - viewportWidth) / 2;
+        int viewportY = (m_windowHeight - viewportHeight) / 2;
+        
+        glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
 
         // Draw UI
         DrawMenuBar(m_window);
         DrawSettingsWindow(m_renderer, m_camera);
 
-        DrawPresetWindow();
+        DrawPresetWindow(m_jsonHandler, m_jsonLoaded);
 
-        // TODO: refactor this because the renderer argument shouldnt be needed, at least for lines.
-        DrawPointsWindow(m_renderer);
-        DrawLinesWindow(m_renderer);
-        DrawPlanesWindow(m_renderer);
+        // TODO: refactor this because the renderer argument shouldnt be needed.
+        DrawTabsWindow(m_renderer);
         
         DrawDihedralViewport(); // Draw the new 2D viewport
 
@@ -632,7 +717,7 @@ void App::Run() {
         m_renderer.DrawPoints(pointPositions, pointColors, s_settings.pointSize);
         m_renderer.DrawLines(linePositions, lineColors, s_settings.lineThickness);
 
-        m_renderer.UpdateCamera(m_camera, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+        m_renderer.UpdateCamera(m_camera, viewportWidth, viewportHeight);
         
         // Render ImGui and swap buffers
         ImGui::Render();
