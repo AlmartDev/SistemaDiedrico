@@ -84,7 +84,7 @@
                 }
             },
             {
-                "name": "v",
+                "name": "u",
                 "description": "Recta paralela a la LT",
                 "point1": {
                     "d": -40,

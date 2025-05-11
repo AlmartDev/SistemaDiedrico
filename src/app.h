@@ -5,8 +5,13 @@
 #include "camera.h"
 #include "json.h"
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#ifdef __EMSCRIPTEN__
+    #include <GLES3/gl3.h>
+    #include <GLFW/glfw3.h>
+#else
+    #include <glad/glad.h>
+    #include <GLFW/glfw3.h>
+#endif
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>

@@ -1,7 +1,8 @@
 #include "renderer.h"
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include <iostream>
+
+#include <GLFW/glfw3.h>
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -10,21 +11,31 @@ namespace {
     GLuint s_dihedralVAO, s_dihedralVBO;
 
     const char* s_vertexShaderSource = R"(
-        #version 330 core
+        #version 300 es
+        precision highp float;
         layout(location = 0) in vec3 aPos;
         uniform mat4 view;
         uniform mat4 projection;
+        #ifdef __EMSCRIPTEN__
+        uniform float pointSize;
+        #endif
         void main() {
             gl_Position = projection * view * vec4(aPos, 1.0);
+            #ifdef __EMSCRIPTEN__
+            gl_PointSize = pointSize;
+            #else
+            gl_PointSize = 1.0; // Default size for desktop
+            #endif
         }
     )";
 
     const char* s_fragmentShaderSource = R"(
-        #version 330 core
+        #version 300 es
+        precision highp float;
         out vec4 FragColor;
         uniform vec3 color;
         void main() {
-            FragColor = vec4(color, .6f); 
+            FragColor = vec4(color, 0.6); 
         }
     )";
 
@@ -49,10 +60,12 @@ namespace {
 }
 
 bool Renderer::Initialize() {
+    #ifndef __EMSCRIPTEN__
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Failed to initialize GLAD\n";
         return false;
     }
+    #endif
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -131,8 +144,18 @@ void Renderer::DrawPoints(const std::vector<glm::vec3>& points,
     glGenBuffers(1, &colorsVBO);
     
     glUseProgram(s_shaderProgram);
+    
+    #ifndef __EMSCRIPTEN__
+    // Desktop OpenGL point size control
     glEnable(GL_PROGRAM_POINT_SIZE);
     glPointSize(size);
+    #else
+    // WebGL alternative - pass size as uniform
+    GLuint pointSizeLoc = glGetUniformLocation(s_shaderProgram, "pointSize");
+    if (pointSizeLoc != -1) {
+        glUniform1f(pointSizeLoc, size);
+    }
+    #endif
 
     for (size_t i = 0; i < points.size(); i++) {
         // Create cut points

@@ -6,10 +6,6 @@
 #include <algorithm>
 #include <string>
 
-#include <imgui.h>
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_opengl3.h"
-
 namespace {
     struct Point {
         std::string name;
@@ -38,8 +34,6 @@ namespace {
 
         float pointSize = 8.0f;
         float lineThickness = 3.0f;
-
-        const std::string& m_default_path = ".assets/presets.json"; // make sure to add presets.json to the compiled program
     };
 
     static double m_scrollY;
@@ -50,7 +44,7 @@ namespace {
 }
 
 App::App() : m_window(nullptr), m_isMousePressed(false), 
-             m_lastMouseX(0), m_lastMouseY(0), m_jsonHandler("presets.json") {}
+             m_lastMouseX(0), m_lastMouseY(0), m_jsonHandler("assets/presets.json") {}
 
 App::~App() = default;
 
@@ -75,12 +69,18 @@ bool App::Initialize() {
         app->m_windowHeight = height;
     });
 
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+
     glfwMakeContextCurrent(m_window);
 
+    #ifndef __EMSCRIPTEN__
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize OpenGL loader (GLAD)\n";
+        std::cerr << "Failed to initialize GLAD\n";
         return false;
     }
+    #endif
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -96,7 +96,11 @@ bool App::Initialize() {
     font = io.Fonts->AddFontFromFileTTF("./assets/Roboto-Regular.ttf", 14);
 
     ImGui_ImplGlfw_InitForOpenGL(m_window, true);
-    ImGui_ImplOpenGL3_Init("#version 130");
+#ifdef __EMSCRIPTEN__
+    ImGui_ImplOpenGL3_Init("#version 300 es");
+#else
+    ImGui_ImplOpenGL3_Init("#version 330");
+#endif
 
     if (!m_renderer.Initialize()) {
         std::cerr << "Failed to initialize renderer\n";
@@ -104,13 +108,12 @@ bool App::Initialize() {
     }
 
     // Load JSON file
-    m_jsonHandler = JsonHandler(s_settings.m_default_path);
+    m_jsonHandler = JsonHandler("./assets/presets.json");
 
     if (!m_jsonHandler.LoadJson()) {
         std::cerr << "Failed to load JSON file\n";
         m_jsonLoaded = false;
     } else {
-
         m_jsonLoaded = true;
     }
     
