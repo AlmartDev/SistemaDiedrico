@@ -9,6 +9,7 @@
 namespace {
     GLuint s_VAO, s_VBO, s_shaderProgram;
     GLuint s_dihedralVAO, s_dihedralVBO;
+    GLuint s_pointVAO, s_pointVBO;  // For point rendering
 
     const char* s_vertexShaderSource = R"(
         #version 300 es
@@ -16,16 +17,10 @@ namespace {
         layout(location = 0) in vec3 aPos;
         uniform mat4 view;
         uniform mat4 projection;
-        #ifdef __EMSCRIPTEN__
         uniform float pointSize;
-        #endif
         void main() {
             gl_Position = projection * view * vec4(aPos, 1.0);
-            #ifdef __EMSCRIPTEN__
             gl_PointSize = pointSize;
-            #else
-            gl_PointSize = 1.0; // Default size for desktop
-            #endif
         }
     )";
 
@@ -110,6 +105,16 @@ bool Renderer::Initialize() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    // Setup point rendering VAO/VBO
+    glGenVertexArrays(1, &s_pointVAO);
+    glGenBuffers(1, &s_pointVBO);
+    glBindVertexArray(s_pointVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, s_pointVBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
     return true;
 }
 
@@ -133,63 +138,41 @@ void Renderer::Render() {
     glFlush();
 }
 
+
 void Renderer::DrawPoints(const std::vector<glm::vec3>& points, 
                          const std::vector<glm::vec3>& colors, 
                          float size) {
     if (points.empty() || points.size() != colors.size()) return;
 
-    GLuint pointsVAO, pointsVBO, colorsVBO;
-    glGenVertexArrays(1, &pointsVAO);
-    glGenBuffers(1, &pointsVBO);
-    glGenBuffers(1, &colorsVBO);
-    
     glUseProgram(s_shaderProgram);
-    
-    #ifndef __EMSCRIPTEN__
-    // Desktop OpenGL point size control
+    glUniform1f(glGetUniformLocation(s_shaderProgram, "pointSize"), size);
     glEnable(GL_PROGRAM_POINT_SIZE);
-    glPointSize(size);
-    #else
-    // WebGL alternative - pass size as uniform
-    GLuint pointSizeLoc = glGetUniformLocation(s_shaderProgram, "pointSize");
-    if (pointSizeLoc != -1) {
-        glUniform1f(pointSizeLoc, size);
-    }
-    #endif
 
+    // Draw main points
+    glBindVertexArray(s_pointVAO);
     for (size_t i = 0; i < points.size(); i++) {
-        // Create cut points
-        std::vector<glm::vec3> cutPoints = {
-            glm::vec3(points[i].x, 0.0f, points[i].z), // y=0 cut
-            glm::vec3(points[i].x, points[i].y, 0.0f)  // z=0 cut
-        };
-
-        if (m_showCutPoints) {
-            glBindVertexArray(pointsVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, pointsVBO);
-            glBufferData(GL_ARRAY_BUFFER, cutPoints.size() * sizeof(glm::vec3), cutPoints.data(), GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-            glEnableVertexAttribArray(0);
-
-            glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), 0.0f, 1.0f, 0.0f);
-            glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(cutPoints.size()));
-        }
-        
-        // Draw main point
-        glBindVertexArray(pointsVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, pointsVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, s_pointVBO);
         glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3), &points[i], GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-        glEnableVertexAttribArray(0);
-
         glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), colors[i].r, colors[i].g, colors[i].b);
         glDrawArrays(GL_POINTS, 0, 1);
     }
-    
+
+    // Draw cut points if enabled
+    if (m_showCutPoints) {
+        for (size_t i = 0; i < points.size(); i++) {
+            std::vector<glm::vec3> cutPoints = {
+                glm::vec3(points[i].x, 0.0f, points[i].z),
+                glm::vec3(points[i].x, points[i].y, 0.0f)
+            };
+
+            glBindBuffer(GL_ARRAY_BUFFER, s_pointVBO);
+            glBufferData(GL_ARRAY_BUFFER, cutPoints.size() * sizeof(glm::vec3), cutPoints.data(), GL_STATIC_DRAW);
+            glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), 0.0f, 1.0f, 0.0f);
+            glDrawArrays(GL_POINTS, 0, static_cast<GLsizei>(cutPoints.size()));
+        }
+    }
+
     glBindVertexArray(0);
-    glDeleteVertexArrays(1, &pointsVAO);
-    glDeleteBuffers(1, &pointsVBO);
-    glDeleteBuffers(1, &colorsVBO);
 }
 
 void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lines, 
