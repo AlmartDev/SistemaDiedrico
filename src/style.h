@@ -19,7 +19,7 @@ inline void SetCustomStyle() { // Set custom ImGui style
 	style.ChildBorderSize = 1.0f;
 	style.PopupRounding = 5.0f;
 	style.PopupBorderSize = 1.0f;
-	style.FramePadding = ImVec2(20.0f, 8.100000381469727f);
+	style.FramePadding = ImVec2(12.0f, 5.0f);
 	style.FrameRounding = 2.0f;
 	style.FrameBorderSize = 0.0f;
 	style.ItemSpacing = ImVec2(3.0f, 3.0f);

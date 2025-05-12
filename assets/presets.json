@@ -45,54 +45,54 @@
                 "name": "r",
                 "description": "Recta Horizontal",
                 "point1": {
-                    "d": 20,
-                    "a": 30,
-                    "c": 15
+                    "d": 48,
+                    "a": 48,
+                    "c": 25
                 },
                 "point2": {
-                    "d": -20,
-                    "a": -25,
-                    "c": 15
+                    "d": -48,
+                    "a": -48,
+                    "c": 25
                 }
             },
             {
                 "name": "s",
                 "description": "Recta Frontal",
                 "point1": {
-                    "d": 30,
-                    "a": 15,
-                    "c": -30
+                    "d": 48,
+                    "a": 25,
+                    "c": -48
                 },
                 "point2": {
-                    "d": -30,
-                    "a": 15,
-                    "c": 40
+                    "d": -48,
+                    "a": 25,
+                    "c": 48
                 }
             },
             {
                 "name": "t",
                 "description": "Recta que corta por LT",
                 "point1": {
-                    "d": 30,
-                    "a": 30,
-                    "c": 30
+                    "d": 48,
+                    "a": 48,
+                    "c": 48
                 },
                 "point2": {
-                    "d": -30,
-                    "a": -30,
-                    "c": -30
+                    "d": -48,
+                    "a": -48,
+                    "c": -48
                 }
             },
             {
                 "name": "u",
                 "description": "Recta paralela a la LT",
                 "point1": {
-                    "d": -40,
+                    "d": -48,
                     "a": 25,
                     "c": 25
                 },
                 "point2": {
-                    "d": 40,
+                    "d": 48,
                     "a": 25,
                     "c": 25
                 }
@@ -101,28 +101,28 @@
                 "name": "v",
                 "description": "Recta vertical",
                 "point1": {
-                    "d": 10,
+                    "d": 0,
                     "a": 25,
-                    "c": 40
+                    "c": 48
                 },
                 "point2": {
-                    "d": 10,
+                    "d": 0,
                     "a": 25,
-                    "c": -40
+                    "c": -48
                 }
             },
             {
                 "name": "w",
                 "description": "Recta de punta",
                 "point1": {
-                    "d": -10,
-                    "a": -40,
-                    "c": 20
+                    "d": 0,
+                    "a": -48,
+                    "c": 25
                 },
                 "point2": {
-                    "d": -10,
-                    "a": 40,
-                    "c": 20
+                    "d": 0,
+                    "a": 48,
+                    "c": 25
                 }
             }
         ],

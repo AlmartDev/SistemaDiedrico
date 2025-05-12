@@ -54,6 +54,14 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     FOLDER ${PROJECT_NAME}
 )
 
+# Copy assets folder to executable directory
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/assets
+    $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets
+    COMMENT "Copying assets folder to executable directory"
+)
+
 if(BUILD_WEB)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     
@@ -62,21 +70,21 @@ if(BUILD_WEB)
         "-Wno-deprecated-declarations"
     )
 
-    # Web-specific linker options
+    # Web-specific linker options - UPDATED SECTION
     target_link_options(${PROJECT_NAME} PRIVATE
         "SHELL:-o ${PROJECT_NAME}.html"
+        "SHELL:-s USE_GLFW=3"
         "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/shell.html"
-        "SHELL:-sEXIT_RUNTIME"
         "SHELL:-s WASM=1"
         "SHELL:-s ALLOW_MEMORY_GROWTH=1"
-        "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/assets@/"
-        "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap']"
-        "SHELL:-s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE=['\$GLFW']"
-
-        # debug
+        "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS']"
+        "SHELL:-s FORCE_FILESYSTEM=1"
+        "SHELL:-s MODULARIZE=1"
+        "SHELL:-s EXPORT_NAME='createDiedricoModule'"
+        
+        # Debug flags (remove for production)
         "SHELL:-s ASSERTIONS=1"
-        "SHELL:-s SAFE_HEAP=1"
-        "SHELL:-s STACK_OVERFLOW_CHECK=1"
+        "SHELL:-s GL_DEBUG=1"
     )
 endif()
 
@@ -109,12 +117,3 @@ LinkJSON(${PROJECT_NAME} PRIVATE)
 target_include_directories(${PROJECT_NAME} PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-
-# Asset handling
-if(BUILD_WEB)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_SOURCE_DIR}/assets
-            ${CMAKE_BINARY_DIR}/assets
-    )
-endif()

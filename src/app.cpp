@@ -10,6 +10,7 @@ namespace {
     struct Point {
         std::string name;
         float coords[3];
+        bool hidden = false;;
         float color[3] = {1.0f, 0.5f, 0.0f}; // Default orange color
     };
 
@@ -20,8 +21,19 @@ namespace {
         float color[3] = {1.0f, 1.0f, 1.0f}; // Default white color
     };
 
+    struct Plane { // planes: you will be able to choose its opacity
+        std::string name;
+        int point1index;
+        int point2index;
+        int point3index;
+        float color[3] = {0.0f, 1.0f, 0.0f}; 
+    };
+
     struct Settings {
         float backgroundColor[3] = {0.0f, 0.0f, 0.0f};
+
+        float dihedralBackgroundColor[3] = {0.1f, 0.1f, 0.1f};
+        float dihedralLineColor[3] = {1.0f, 1.0f, 1.0f};
 
         int axesType = 1; // Default to Cartesian axes
 
@@ -44,7 +56,7 @@ namespace {
 }
 
 App::App() : m_window(nullptr), m_isMousePressed(false), 
-             m_lastMouseX(0), m_lastMouseY(0), m_jsonHandler("assets/presets.json") {}
+             m_lastMouseX(0), m_lastMouseY(0), m_jsonHandler("./assets/presets.json") {}
 
 App::~App() = default;
 
@@ -124,8 +136,10 @@ void DrawSettingsWindow(Renderer& renderer, Camera& camera) {
     ImGui::Begin("3D Representation Settings");
 
     ImGui::ColorEdit3("Background Color", s_settings.backgroundColor);
+    ImGui::ColorEdit3("Dihedral Bg Color", s_settings.dihedralBackgroundColor);
+    ImGui::ColorEdit3("Dihedral Line Color", s_settings.dihedralLineColor);
 
-    const char* axesTypes[] = {"3D Axes", "Cartesian Axes", "Dihedral Axes"};
+    const char* axesTypes[] = {"3D Axes", "Cartesian Axes", "Dihedral Axes ONLY"};
     ImGui::Combo("Axes Type", &s_settings.axesType, axesTypes, IM_ARRAYSIZE(axesTypes));
     renderer.SetAxesType(s_settings.axesType);
 
@@ -137,21 +151,6 @@ void DrawSettingsWindow(Renderer& renderer, Camera& camera) {
     
     ImGui::SliderFloat("Mouse Sensitivity", &s_settings.mouseSensitivity, 0.0f, 2.0f);
     camera.SetSensitivity(s_settings.mouseSensitivity);
-
-    // button for more settings
-    if (ImGui::Button("More Settings")) {
-        ImGui::OpenPopup("More Settings");
-    }
-    if (ImGui::BeginPopupModal("More Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Not yet!");
-        
-        // more settings here!
-
-        if (ImGui::Button("Close", ImVec2(120, 0))) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
 
     ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)", 
                 camera.GetPosition().x, 
@@ -165,9 +164,9 @@ void DrawSettingsWindow(Renderer& renderer, Camera& camera) {
 void DrawMenuBar(GLFWwindow* window) {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            ImGui::MenuItem("Save", nullptr, false);
-            ImGui::MenuItem("Save As", nullptr, false);
-            ImGui::MenuItem("Load", nullptr, false);
+            ImGui::MenuItem("Save*", nullptr, false);
+            ImGui::MenuItem("Save As*", nullptr, false);
+            ImGui::MenuItem("Load*", nullptr, false);
             ImGui::EndMenu();
         }
         
@@ -232,6 +231,8 @@ void DrawTabsWindow(Renderer& renderer) {
             
             // Point list
             for (size_t i = 0; i < s_points.size(); ++i) {
+                if (s_points[i].hidden) continue;
+
                 auto& point = s_points[i];
                 ImVec4 color(point.color[0], point.color[1], point.color[2], 1.0f);
 
@@ -276,7 +277,7 @@ void DrawTabsWindow(Renderer& renderer) {
                             }
                             *out_text = points[idx].name.c_str();
                             return true;
-                        }, &s_points, s_points.size());
+                        }, &s_points, s_points.size(), ImGuiComboFlags_HeightSmall);
             ImGui::Combo("Point 2", &selectedPoint2, 
                         [](void* data, int idx, const char** out_text) {
                             auto& points = *static_cast<std::vector<Point>*>(data);
@@ -285,7 +286,7 @@ void DrawTabsWindow(Renderer& renderer) {
                             }
                             *out_text = points[idx].name.c_str();
                             return true;
-                        }, &s_points, s_points.size());
+                        }, &s_points, s_points.size(), ImGuiComboFlags_NoArrowButton);
 
             // thickness slider
             ImGui::DragFloat("Line Thickness", &s_settings.lineThickness, 0.1f, 0.1f, 100.0f);
@@ -434,13 +435,16 @@ void DrawPresetWindow(JsonHandler& jsonHandler, bool& jsonLoaded) {
                         static_cast<int>(s_points.size() + 1) // Index of second point
                     });
                     // Add the two points for the line
+                    // TODO: make the points apear in ui as a group tied to the line, if you delete the line, delete the points too and vice versa
+                    // Right now they are just hidden.
                     s_points.push_back({
                         ("A_" + preset["name"].get<std::string>()).c_str(),
                         {
                             preset["point1"]["d"].get<float>(),
                             preset["point1"]["a"].get<float>(),
                             preset["point1"]["c"].get<float>()
-                        }
+                        },
+                        true // hidden
                     });
                     s_points.push_back({
                         ("B_" + preset["name"].get<std::string>()).c_str(),
@@ -448,7 +452,8 @@ void DrawPresetWindow(JsonHandler& jsonHandler, bool& jsonLoaded) {
                             preset["point2"]["d"].get<float>(),
                             preset["point2"]["a"].get<float>(),
                             preset["point2"]["c"].get<float>()
-                        }
+                        },
+                        true 
                     });
                     ImGui::CloseCurrentPopup();
                 }
@@ -484,13 +489,18 @@ void App::DrawDihedralViewport() { // TODO: this whole function should be maybe 
     // Push custom style for this window only
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0)); // Remove padding
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f); // Square corners
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f)); // Dark background
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(s_settings.dihedralBackgroundColor[0], s_settings.dihedralBackgroundColor[1], s_settings.dihedralBackgroundColor[2], 1.0f)); // Dark background
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f)); // Light border
         
     ImGui::Begin("Dihedral Projection", nullptr, 
                 ImGuiWindowFlags_NoCollapse | 
                 ImGuiWindowFlags_NoScrollbar |
                 ImGuiWindowFlags_NoTitleBar );
+
+    // default color
+    ImColor s_color = IM_COL32(s_settings.dihedralLineColor[0] * 255, 
+                        s_settings.dihedralLineColor[1] * 255, 
+                        s_settings.dihedralLineColor[2] * 255, 255);
 
     // Get the size of the window
     ImVec2 viewportSize = ImGui::GetContentRegionAvail();
@@ -500,19 +510,20 @@ void App::DrawDihedralViewport() { // TODO: this whole function should be maybe 
     ImVec2 cursorPos = ImGui::GetCursorScreenPos();
     ImVec2 p0 = ImVec2(cursorPos.x, cursorPos.y + viewportSize.y / 2);
     ImVec2 p1 = ImVec2(cursorPos.x + viewportSize.x, cursorPos.y + viewportSize.y / 2);
-    drawList->AddLine(p0, p1, IM_COL32(255, 255, 255, 255), 2.0f); 
+    drawList->AddLine(p0, p1, s_color, 2.0f); 
 
     // draw the two little lines under each side of the ground line that explain that that is the ground line
-    drawList->AddLine(ImVec2(p0.x + 4, p0.y + 5), ImVec2(p0.x + 25, p0.y + 5), IM_COL32(255, 255, 255, 255), 2.0f);
-    drawList->AddLine(ImVec2(p1.x - 4, p1.y + 5), ImVec2(p1.x - 25, p1.y + 5), IM_COL32(255, 255, 255, 255), 2.0f);
+    drawList->AddLine(ImVec2(p0.x + 4, p0.y + 5), ImVec2(p0.x + 25, p0.y + 5), s_color, 2.0f);
+    drawList->AddLine(ImVec2(p1.x - 4, p1.y + 5), ImVec2(p1.x - 25, p1.y + 5), s_color, 2.0f);
 
     // Origin point
     ImVec2 p2 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 - 5);
     ImVec2 p3 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 + 5);
-    drawList->AddLine(p2, p3, IM_COL32(255, 255, 255, 255), 2.0f); // L.T. line
+    drawList->AddLine(p2, p3, s_color, 2.0f); // L.T. line
     
     // Draw points in 2D projection
     for (const auto& point : s_points) {
+        if (point.hidden) continue;
 
         float x = point.coords[0] / 2.0f; // careful for the scaling here, this should not be hardcoded! (same with the 3D view)
         float y1 = point.coords[2] / 3.0f;
@@ -539,7 +550,7 @@ void App::DrawDihedralViewport() { // TODO: this whole function should be maybe 
         ImGui::Text("%c2", point.name[0]);
 
         // Draw projection lines
-        drawList->AddLine(pos1, pos2, IM_COL32(255, 255, 255, 100), 1.0f);
+        drawList->AddLine(pos1, pos2, s_color, 1.0f);
     }
     
     // Draw lines between points
@@ -698,6 +709,7 @@ void App::Run() {
         // Prepare point data
         std::vector<glm::vec3> pointPositions, pointColors;
         for (const auto& point : s_points) {
+            if (point.hidden) continue; // Skip hidden points
             pointPositions.emplace_back(point.coords[0]/50, point.coords[2]/50, point.coords[1]/50);
             pointColors.emplace_back(point.color[0], point.color[1], point.color[2]);
         }
