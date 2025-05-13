@@ -1,6 +1,3 @@
-#ifndef APP_H
-#define APP_H
-
 #include "renderer.h"
 #include "camera.h"
 #include "json.h"
@@ -17,10 +14,12 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
+#include "scene.h"
+
 class App {
 public:
     App();
-    ~App();
+    ~App() = default;
 
     bool Initialize();
     void Run();
@@ -29,25 +28,36 @@ public:
 private:
     void DrawDihedralViewport();
 
+    void HandleInput();
+    void PrepareRenderData();
+    
+    void SetupImGui();
+    void DrawUI();
+
+    // UI Drawing functions
+    void DrawMenuBar();
+    void DrawSettingsWindow();
+    void DrawTabsWindow();
+    void DrawPresetWindow();
+    void DrawPointsTab();
+    void DrawLinesTab();
+
     GLFWwindow* m_window;
     Renderer m_renderer;
     Camera m_camera;
-
     JsonHandler m_jsonHandler;
-    bool m_jsonLoaded = false;
+    ImFont* m_font;
 
-    ImFont* font;
+    SceneData m_sceneData;
+    static double m_scrollY;
 
-    int DEFAULT_WIDTH = 1440;
-    int DEFAULT_HEIGHT = 1080;
-
+    const int DEFAULT_WIDTH = 1440;
+    const int DEFAULT_HEIGHT = 1080;
     int m_windowWidth = DEFAULT_WIDTH;
     int m_windowHeight = DEFAULT_HEIGHT;
 
-    // Input state
-    bool m_isMousePressed;
-    float m_lastMouseX;
-    float m_lastMouseY;
+    bool m_isMousePressed = false;
+    float m_lastMouseX = 0;
+    float m_lastMouseY = 0;
+    bool m_jsonLoaded = false;
 };
-
-#endif // APP_H

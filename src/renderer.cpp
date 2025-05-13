@@ -1,8 +1,6 @@
 #include "renderer.h"
 #include <iostream>
 
-#include <GLFW/glfw3.h>
-
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -55,13 +53,6 @@ namespace {
 }
 
 bool Renderer::Initialize() {
-    #ifndef __EMSCRIPTEN__
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD\n";
-        return false;
-    }
-    #endif
-
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
