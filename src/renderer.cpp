@@ -138,7 +138,6 @@ void Renderer::Render() {
     glFlush();
 }
 
-
 void Renderer::DrawPoints(const std::vector<glm::vec3>& points, 
                          const std::vector<glm::vec3>& colors, 
                          float size) {

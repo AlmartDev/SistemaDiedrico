@@ -544,10 +544,10 @@ void App::DrawDihedralViewport() { // TODO: this whole function should be maybe 
                                 IM_COL32(point.color[0] * 255, point.color[1] * 255, point.color[2] * 255, 255));
         
         // Draw labels (we only use the first character)
-        ImGui::SetCursorScreenPos(ImVec2(pos2.x - 20, pos2.y - 20)); // P1
-        ImGui::Text("%c1", point.name[0]);
-        ImGui::SetCursorScreenPos(ImVec2(pos1.x - 20, pos1.y - 20)); // P2
-        ImGui::Text("%c2", point.name[0]);
+        ImGui::SetCursorScreenPos(ImVec2(pos2.x - 30, pos2.y - 20)); // P1
+        ImGui::TextColored(s_color, "%c1", point.name[0]);
+        ImGui::SetCursorScreenPos(ImVec2(pos1.x - 30, pos1.y - 20)); // P2
+        ImGui::TextColored(s_color, "%c2", point.name[0]); 
 
         // Draw projection lines
         drawList->AddLine(pos1, pos2, s_color, 1.0f);
@@ -584,9 +584,6 @@ void App::DrawDihedralViewport() { // TODO: this whole function should be maybe 
             edge1_r2 = ImVec2((r2_minY - b_r2) / m_r2, r2_minY);
             edge2_r2 = ImVec2((r2_maxY - b_r2) / m_r2, r2_maxY);
         }
-        
-        drawList->AddLine(edge1_r2, edge2_r2, 
-            IM_COL32(line.color[0] * 255, line.color[1] * 255, line.color[2] * 255, 255), 1.0f);
 
         // r1 line (horizontal plane)
         ImVec2 p1_r1(cursorPos.x + viewportSize.x / 2 + x1 * 10, (cursorPos.y + viewportSize.y / 2) - y2 * 10);
@@ -609,15 +606,19 @@ void App::DrawDihedralViewport() { // TODO: this whole function should be maybe 
             edge1_r1 = ImVec2((r1_minY - b_r1) / m_r1, r1_minY);
             edge2_r1 = ImVec2((r1_maxY - b_r1) / m_r1, r1_maxY);
         }
-        
-        drawList->AddLine(edge1_r1, edge2_r1, 
-            IM_COL32(line.color[0] * 255, line.color[1] * 255, line.color[2] * 255, 255), 1.0f);
+
+        // TODO: user selects the color of the line also for the dihedral representation
+        drawList->AddLine(edge1_r2, edge2_r2, s_color, 1.0f);
+        drawList->AddLine(edge1_r1, edge2_r1, s_color, 1.0f);
 
         // draw labels on the middle of the lines
-        ImGui::SetCursorScreenPos(ImVec2((edge1_r1.x + edge2_r1.x) / 2 - 20, (edge1_r1.y + edge2_r1.y) / 2 - 20)); // r1
-        ImGui::Text("%c1", line.name[0]);
-        ImGui::SetCursorScreenPos(ImVec2((edge1_r2.x + edge2_r2.x) / 2 - 20, (edge1_r2.y + edge2_r2.y) / 2 - 20)); // r2
-        ImGui::Text("%c2", line.name[0]);
+        ImVec4 s_textColor = ImVec4(s_settings.dihedralLineColor[0], 
+                            s_settings.dihedralLineColor[1], 
+                            s_settings.dihedralLineColor[2], 1.0f);
+        ImGui::SetCursorScreenPos(ImVec2((edge1_r1.x + edge2_r1.x) / 2, (edge1_r1.y + edge2_r1.y) / 2 - 25)); // r1
+        ImGui::TextColored(s_textColor, "%c1", line.name[0]);
+        ImGui::SetCursorScreenPos(ImVec2((edge1_r2.x + edge2_r2.x) / 2, (edge1_r2.y + edge2_r2.y) / 2 - 25)); // r2
+        ImGui::TextColored(s_textColor, "%c2", line.name[0]);
     }
 
     ImGui::End();
