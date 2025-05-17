@@ -128,7 +128,15 @@
         ],
         "planes": 
         [
-            
+            {
+                "name": "a",
+                "description": "Plano Cualquiera",
+                "coords": {
+                    "x": 48,
+                    "y": 48,
+                    "z": 48
+                }
+            }
         ]
     }
 }

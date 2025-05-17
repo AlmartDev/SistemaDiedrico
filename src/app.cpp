@@ -70,9 +70,13 @@ void App::SetupImGui() {
     SetCustomStyle();
 
     ImGuiIO& io = ImGui::GetIO();
-    m_font = io.Fonts->AddFontFromFileTTF("./assets/Roboto-Regular.ttf", 14);
+    m_font = io.Fonts->AddFontFromFileTTF("./assets/Roboto-Regular.ttf", m_sceneData.settings.fontSize);
 
+    // load imgui.ini
+    ImGui::GetIO().IniFilename = "./assets/imgui.ini";
+    
     ImGui_ImplGlfw_InitForOpenGL(m_window, true);
+
 #ifdef __EMSCRIPTEN__
     ImGui_ImplOpenGL3_Init("#version 300 es");
 #else
@@ -133,8 +137,25 @@ void App::PrepareRenderData() {
         lineColors.emplace_back(line.color[0], line.color[1], line.color[2]);
     }
 
+    std::vector<std::vector<glm::vec3>> planePositions;
+    std::vector<glm::vec3> planeColors;
+
+    for (const auto& plane : m_sceneData.planes) {
+        const auto& point1 = m_sceneData.points[plane.point1index];
+        const auto& point2 = m_sceneData.points[plane.point2index];
+        const auto& point3 = m_sceneData.points[plane.point3index];
+
+        planePositions.push_back({
+            glm::vec3(point1.coords[0]/50, point1.coords[2]/50, point1.coords[1]/50),
+            glm::vec3(point2.coords[0]/50, point2.coords[2]/50, point2.coords[1]/50),
+            glm::vec3(point3.coords[0]/50, point3.coords[2]/50, point3.coords[1]/50)
+        });
+        planeColors.emplace_back(plane.color[0], plane.color[1], plane.color[2]);
+    }
+
     m_renderer.DrawPoints(pointPositions, pointColors, m_sceneData.settings.pointSize);
     m_renderer.DrawLines(linePositions, lineColors, m_sceneData.settings.lineThickness);
+    m_renderer.DrawPlanes(planePositions, planeColors, m_sceneData.settings.planeOpacity);
 }
 
 void App::DrawUI() {
@@ -162,7 +183,7 @@ void App::DrawMenuBar() {
         }
         
         if (ImGui::BeginMenu("About")) {
-            ImGui::Text("Version 0.3");
+            ImGui::Text("Version 0.4");
             ImGui::Text("Made by Alonso Martínez");
             ImGui::Text("@almartdev on GitHub");
             ImGui::EndMenu();
@@ -183,11 +204,13 @@ void App::DrawSettingsWindow() {
     ImGui::Combo("Axes Type", &m_sceneData.settings.axesType, axesTypes, IM_ARRAYSIZE(axesTypes));
     m_renderer.SetAxesType(m_sceneData.settings.axesType);
 
-    ImGui::Checkbox("Show Dihedral System", &m_sceneData.settings.showDihedralSystem);
-    m_renderer.SetDihedralsVisible(m_sceneData.settings.showDihedralSystem);
+    if (m_sceneData.settings.axesType != 2) {
+        ImGui::Checkbox("Show Dihedral System", &m_sceneData.settings.showDihedralSystem);
+        m_renderer.SetDihedralsVisible(m_sceneData.settings.showDihedralSystem);
+    }
     
     ImGui::SliderFloat("Mouse Sensitivity", &m_sceneData.settings.mouseSensitivity, 0.0f, 2.0f);
-    m_camera.SetSensitivity(m_sceneData.settings.mouseSensitivity);
+    m_camera.SetSensitivity(m_sceneData.settings.mouseSensitivity);    
 
     ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)", 
                 m_camera.GetPosition().x, 
@@ -211,7 +234,7 @@ void App::DrawTabsWindow() {
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Planes")) {
-            ImGui::Text("Not yet!");
+            DrawPlanesTab();
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -256,32 +279,57 @@ void App::DrawPointsTab() {
 
     ImGui::Separator();
     
-    for (size_t i = 0; i < m_sceneData.points.size(); ++i) {
-        if (m_sceneData.points[i].hidden) continue;
+    // Draw point list with better styling
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
+    if (ImGui::BeginTable("PointTable", 4, ImGuiTableFlags_NoHostExtendX                
+                                         | ImGuiTableFlags_RowBg  
+                                         | ImGuiTableFlags_Resizable )) {
+        ImGui::TableSetupColumn(" Name");
+        ImGui::TableSetupColumn("Coords");
+        ImGui::TableSetupColumn("Color");
+        ImGui::TableSetupColumn("Delete");
+        ImGui::TableHeadersRow();
 
-        auto& point = m_sceneData.points[i];
-        ImVec4 color(point.color[0], point.color[1], point.color[2], 1.0f);
+        for (size_t i = 0; i < m_sceneData.points.size(); ++i) {
+            if (m_sceneData.points[i].hidden) continue;
 
-        ImGui::Text("%s (%c)", point.name.c_str(), point.name[0]);
-        ImGui::SameLine();
+            auto& point = m_sceneData.points[i];
+            ImVec4 color(point.color[0], point.color[1], point.color[2], 1.0f);
 
-        ImGui::PushID(static_cast<int>(i));
-        ImGui::DragFloat3("", point.coords, 0.1f);
-        ImGui::SameLine();
+            ImGui::PushID(static_cast<int>(i)); // Unique ID scope for widgets
 
-        ImGui::ColorEdit4("##Color", (float*)&color, 
-                        ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
-        point.color[0] = color.x;
-        point.color[1] = color.y;
-        point.color[2] = color.z;
+            ImGui::TableNextRow();
 
-        ImGui::SameLine();
-        if (ImGui::Button("X")) {
-            m_sceneData.points.erase(m_sceneData.points.begin() + i);
-            --i;
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("%s (%c)", point.name.c_str(), point.name.empty() ? '?' : point.name[0]);
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::PushID(static_cast<int>(i));
+            // Make the DragFloat3 as wide as possible in the cell
+            float cellWidth = ImGui::GetContentRegionAvail().x;
+            ImGui::SetNextItemWidth(cellWidth);
+            ImGui::DragFloat3("", point.coords, 0.1f);
+            ImGui::PopID();
+
+            ImGui::TableSetColumnIndex(2);
+            if (ImGui::ColorEdit4("##Color", (float*)&color, 
+                        ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
+                point.color[0] = color.x;
+                point.color[1] = color.y;
+                point.color[2] = color.z;
+            }
+
+            ImGui::TableSetColumnIndex(3);
+            if (ImGui::Button("X")) {
+                DeletePoint(point);
+            }
+            
+            ImGui::PopID();
         }
-        ImGui::PopID();
+
+        ImGui::EndTable();
     }
+    ImGui::PopStyleVar();
 }
 
 void App::DrawLinesTab() {
@@ -293,84 +341,261 @@ void App::DrawLinesTab() {
     static int selectedPoint1 = -1;
     static int selectedPoint2 = -1;
 
-    ImGui::Combo("Point 1", &selectedPoint1, 
-                [](void* data, int idx, const char** out_text) {
-                    auto& points = *static_cast<std::vector<SceneData::Point>*>(data);
-                    if (idx < 0 || idx >= static_cast<int>(points.size())) {
-                        return false;
-                    }
-                    *out_text = points[idx].name.c_str();
-                    return true;
-                }, &m_sceneData.points, m_sceneData.points.size(), ImGuiComboFlags_HeightSmall);
+    // filtered list of visible points
+    std::vector<int> visiblePointIndices;
+    std::vector<const char*> visiblePointNames;
+    for (size_t i = 0; i < m_sceneData.points.size(); ++i) {
+        if (!m_sceneData.points[i].hidden) {
+            visiblePointIndices.push_back(static_cast<int>(i));
+            visiblePointNames.push_back(m_sceneData.points[i].name.c_str());
+        }
+    }
 
-    ImGui::Combo("Point 2", &selectedPoint2, 
-                [](void* data, int idx, const char** out_text) {
-                    auto& points = *static_cast<std::vector<SceneData::Point>*>(data);
-                    if (idx < 0 || idx >= static_cast<int>(points.size())) {
-                        return false;
-                    }
-                    *out_text = points[idx].name.c_str();
-                    return true;
-                }, &m_sceneData.points, m_sceneData.points.size(), ImGuiComboFlags_NoArrowButton);
+    auto getOriginalIndex = [&](int selected) -> int {
+        if (selected >= 0 && selected < static_cast<int>(visiblePointIndices.size()))
+            return visiblePointIndices[selected];
+        return -1;
+    };
+
+    int selectedIdx1 = -1, selectedIdx2 = -1;
+    for (size_t i = 0; i < visiblePointIndices.size(); ++i) {
+        if (visiblePointIndices[i] == selectedPoint1) selectedIdx1 = static_cast<int>(i);
+        if (visiblePointIndices[i] == selectedPoint2) selectedIdx2 = static_cast<int>(i);
+    }
+
+    ImGui::Combo("Point 1", &selectedIdx1, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+    ImGui::Combo("Point 2", &selectedIdx2, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+
+    selectedPoint1 = getOriginalIndex(selectedIdx1);
+    selectedPoint2 = getOriginalIndex(selectedIdx2);
 
     ImGui::DragFloat("Line Thickness", &m_sceneData.settings.lineThickness, 0.1f, 0.1f, 100.0f);
-    
+
     if (ImGui::Button("Add Line")) {
         if (selectedPoint1 != selectedPoint2) {
             std::string name = lineName;
             name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
             name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
-    
+
             if (name.empty()) {
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
-            } 
-            else if (std::any_of(m_sceneData.points.begin(), m_sceneData.points.end(), 
-                                [&](const SceneData::Point& p) { return p.name == name; })) {
+            } else if (std::any_of(m_sceneData.points.begin(), m_sceneData.points.end(),
+                [&](const SceneData::Point& p) { return p.name == name; })) {
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
-            } 
-            else if (m_sceneData.points[selectedPoint1].coords == m_sceneData.points[selectedPoint2].coords) {
+            } else if (m_sceneData.points[selectedPoint1].coords == m_sceneData.points[selectedPoint2].coords) {
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Points are the same");
-            } 
-            else {
-                m_sceneData.lines.push_back({lineName, selectedPoint1, selectedPoint2});              
+            } else {
+                m_sceneData.lines.push_back({ lineName, selectedPoint1, selectedPoint2 });
                 lineName[0] = '\0';
             }
         }
     }
+
     ImGui::SameLine();
     ImGui::Checkbox("Show Cut Lines", &m_sceneData.settings.showCutLines);
     m_renderer.SetCutLineVisible(m_sceneData.settings.showCutLines);
 
     ImGui::Separator();
-    
-    for (size_t i = 0; i < m_sceneData.lines.size(); ++i) {
-        auto& line = m_sceneData.lines[i];
-        ImVec4 color(line.color[0], line.color[1], line.color[2], 1.0f);
 
-        ImGui::Text("%s (%c): ", line.name.c_str(), line.name[0]);
-        ImGui::SameLine();
-        ImGui::Text("%s --> %s", 
-                   m_sceneData.points[line.point1index].name.c_str(), 
-                   m_sceneData.points[line.point2index].name.c_str());
+    // Draw line list with better styling
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
+    if (ImGui::BeginTable("LineTable", 5, ImGuiTableFlags_NoHostExtendX                
+                                        | ImGuiTableFlags_RowBg  
+                                        | ImGuiTableFlags_Resizable )) {
+        ImGui::TableSetupColumn("Name");
+        ImGui::TableSetupColumn("Points");
+        ImGui::TableSetupColumn("Hide Points");
+        ImGui::TableSetupColumn("Color");
+        ImGui::TableSetupColumn("Delete");
+        ImGui::TableHeadersRow();
 
-        ImGui::SameLine();
-        ImGui::PushID(static_cast<int>(i));
-        ImGui::ColorEdit4("##Color", (float*)&color, 
-                        ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
-        line.color[0] = color.x;
-        line.color[1] = color.y;
-        line.color[2] = color.z;
+        for (size_t i = 0; i < m_sceneData.lines.size(); ++i) {
+            auto& line = m_sceneData.lines[i];
+            ImVec4 color(line.color[0], line.color[1], line.color[2], 1.0f);
 
-        ImGui::SameLine();
-        if (ImGui::Button("X")) {
-            m_sceneData.lines.erase(m_sceneData.lines.begin() + i);
-            --i;
+            ImGui::PushID(static_cast<int>(i)); // Unique ID scope for widgets
+
+            ImGui::TableNextRow();
+
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("%s (%c)", line.name.c_str(), line.name.empty() ? '?' : line.name[0]);
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Text("%s --> %s",
+                m_sceneData.points[line.point1index].name.c_str(),
+                m_sceneData.points[line.point2index].name.c_str());
+
+            ImGui::TableSetColumnIndex(2);
+            bool pointsHidden = m_sceneData.points[line.point1index].hidden && m_sceneData.settings.showCutPoints;
+            if (ImGui::Checkbox("##Hide", &pointsHidden)) {
+                m_sceneData.points[line.point1index].hidden = pointsHidden;
+                m_sceneData.points[line.point2index].hidden = pointsHidden;
+            }
+
+            ImGui::TableSetColumnIndex(3);
+            if (ImGui::ColorEdit4("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
+                line.color[0] = color.x;
+                line.color[1] = color.y;
+                line.color[2] = color.z;
+            }
+
+            ImGui::TableSetColumnIndex(4);
+            if (ImGui::Button("X")) {
+                m_sceneData.lines.erase(m_sceneData.lines.begin() + i);
+                DeletePoint(m_sceneData.points[line.point1index]);
+                DeletePoint(m_sceneData.points[line.point2index]);
+                ImGui::PopID();
+                --i; // Re-adjust index
+                continue;
+            }
+
+            ImGui::PopID();
         }
-        ImGui::PopID();
+
+        ImGui::EndTable();
     }
+    ImGui::PopStyleVar(); 
+}
+
+void App::DrawPlanesTab() {
+    ImGui::Text("Planes are defined by 3 unalined points");
+    static char planeName[128] = "";
+    ImGui::InputText("Name", planeName, sizeof(planeName));
+
+    // TODO: add option to create a plane with coordinates (instead of 3 points)
+
+    static int selectedPoint1 = -1;
+    static int selectedPoint2 = -1;
+    static int selectedPoint3 = -1;
+
+    // filtered list of visible points
+    std::vector<int> visiblePointIndices;
+    std::vector<const char*> visiblePointNames;
+    for (size_t i = 0; i < m_sceneData.points.size(); ++i) {
+        if (!m_sceneData.points[i].hidden) {
+            visiblePointIndices.push_back(static_cast<int>(i));
+            visiblePointNames.push_back(m_sceneData.points[i].name.c_str());
+        }
+    }
+
+    auto getOriginalIndex = [&](int selected) -> int {
+        if (selected >= 0 && selected < static_cast<int>(visiblePointIndices.size()))
+            return visiblePointIndices[selected];
+        return -1;
+    };
+
+    int selectedIdx1 = -1, selectedIdx2 = -1, selectedIdx3 = -1;
+    for (size_t i = 0; i < visiblePointIndices.size(); ++i) {
+        if (visiblePointIndices[i] == selectedPoint1) selectedIdx1 = static_cast<int>(i);
+        if (visiblePointIndices[i] == selectedPoint2) selectedIdx2 = static_cast<int>(i);
+        if (visiblePointIndices[i] == selectedPoint3) selectedIdx3 = static_cast<int>(i);
+    }
+
+    ImGui::Combo("Point 1", &selectedIdx1, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+    ImGui::Combo("Point 2", &selectedIdx2, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+    ImGui::Combo("Point 3", &selectedIdx3, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+
+    selectedPoint1 = getOriginalIndex(selectedIdx1);
+    selectedPoint2 = getOriginalIndex(selectedIdx2);
+    selectedPoint3 = getOriginalIndex(selectedIdx3);
+
+    if (ImGui::Button("Add Plane")) {
+        if (selectedPoint1 != selectedPoint2 && selectedPoint1 != selectedPoint3 && selectedPoint2 != selectedPoint3) {
+            std::string name = planeName;
+            name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
+            name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
+
+            if (name.empty()) {
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
+            } else if (std::any_of(m_sceneData.points.begin(), m_sceneData.points.end(),
+                [&](const SceneData::Point& p) { return p.name == name; })) {
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
+            } else {
+                m_sceneData.planes.push_back({ planeName, selectedPoint1, selectedPoint2, selectedPoint3 });
+                planeName[0] = '\0';
+            }
+        }
+    }
+
+    ImGui::SameLine();
+    ImGui::Checkbox("Show Cuts*", &m_sceneData.settings.showCutPlanes);
+    ImGui::SameLine();
+    ImGui::Checkbox("Expand*", &m_sceneData.settings.expandPlanes);
+    m_renderer.SetCutPlaneVisible(m_sceneData.settings.showCutPlanes);
+    m_renderer.SetExpandedPlanes(m_sceneData.settings.expandPlanes);
+
+    ImGui::DragFloat("Plane Opacity", &m_sceneData.settings.planeOpacity, 0.01f, 0.1f, 1.0f);
+
+
+    ImGui::Separator();
+
+    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
+    if (ImGui::BeginTable("PlaneTable", 5, ImGuiTableFlags_NoHostExtendX                
+                                        | ImGuiTableFlags_RowBg  
+                                        | ImGuiTableFlags_Resizable )) {
+        ImGui::TableSetupColumn("Name");
+        ImGui::TableSetupColumn("Points");
+        ImGui::TableSetupColumn("Hide Points");
+        ImGui::TableSetupColumn("Color");
+        ImGui::TableSetupColumn("Delete");
+        ImGui::TableHeadersRow();
+
+        for (size_t i = 0; i < m_sceneData.planes.size(); ++i) {
+            auto& plane = m_sceneData.planes[i];
+            ImVec4 color(plane.color[0], plane.color[1], plane.color[2], 1.0f);
+            ImGui::PushID(static_cast<int>(i)); // Unique ID scope for widgets
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("%s (%c)", plane.name.c_str(), plane.name.empty() ? '?' : plane.name[0]);
+
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Text("%s, %s, %s",
+                m_sceneData.points[plane.point1index].name.c_str(),
+                m_sceneData.points[plane.point2index].name.c_str(),
+                m_sceneData.points[plane.point3index].name.c_str());
+
+            ImGui::TableSetColumnIndex(2);
+            bool pointsHidden = m_sceneData.points[plane.point1index].hidden && 
+                                m_sceneData.points[plane.point2index].hidden && 
+                                m_sceneData.points[plane.point3index].hidden && 
+                                m_sceneData.settings.showCutPoints;
+
+            if (ImGui::Checkbox("##Hide", &pointsHidden)) {
+                m_sceneData.points[plane.point1index].hidden = pointsHidden;
+                m_sceneData.points[plane.point2index].hidden = pointsHidden;
+                m_sceneData.points[plane.point3index].hidden = pointsHidden;
+            }
+
+            ImGui::TableSetColumnIndex(3);
+            if (ImGui::ColorEdit4("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
+                plane.color[0] = color.x;
+                plane.color[1] = color.y;
+                plane.color[2] = color.z;
+            }
+
+            ImGui::TableSetColumnIndex(4);
+            if (ImGui::Button("X")) {
+                m_sceneData.planes.erase(m_sceneData.planes.begin() + i);
+                DeletePoint(m_sceneData.points[plane.point1index]);
+                DeletePoint(m_sceneData.points[plane.point2index]);
+                DeletePoint(m_sceneData.points[plane.point3index]);
+                ImGui::PopID();
+                --i; // Re-adjust index
+                continue;
+            }
+
+            ImGui::PopID();
+        }
+
+        ImGui::EndTable();
+    }
+    ImGui::PopStyleVar(); 
 }
 
 void App::DrawPresetWindow() {
@@ -474,11 +699,59 @@ void App::DrawPresetWindow() {
     ImGui::SameLine();
 
     if (ImGui::Button("Planes")) {
-        ImGui::OpenPopup("Planes Presets");
+        ImGui::OpenPopup("Plane Presets");
     }
     
-    if (ImGui::BeginPopupModal("Planes Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Plane presets coming soon!");
+    if (ImGui::BeginPopupModal("Plane Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        // to make plane presets use less space, we will make the planes from coordinates
+
+        ImGui::Text("Available Plane Presets:");
+        ImGui::Separator();
+        
+        auto planePresets = m_jsonHandler.GetPlanePresets();
+        if (planePresets.empty()) {
+            ImGui::Text("No plane presets found");
+        } else {
+            for (const auto& preset : planePresets) {
+                std::string label = preset["name"].get<std::string>() + " - " + preset["description"].get<std::string>();
+                if (ImGui::Button(label.c_str())) {
+                    m_sceneData.planes.push_back({
+                        preset["name"],
+                        static_cast<int>(m_sceneData.points.size()),
+                        static_cast<int>(m_sceneData.points.size() + 1),
+                        static_cast<int>(m_sceneData.points.size() + 2)
+                    });
+                    
+                    m_sceneData.points.push_back({
+                        ("x_" + preset["name"].get<std::string>()).c_str(),
+                        {
+                            preset["coords"]["x"].get<float>(),
+                            -0.0f, 0.0f
+                        },
+                        true
+                    });
+                    m_sceneData.points.push_back({
+                        ("y_" + preset["name"].get<std::string>()).c_str(),
+                        {
+                            0.0f,
+                            preset["coords"]["y"].get<float>(),
+                            0.0f
+                        },
+                        true 
+                    });m_sceneData.points.push_back({
+                        ("z_" + preset["name"].get<std::string>()).c_str(),
+                        {
+                            0.0f,
+                            0.0f,
+                            preset["coords"]["z"].get<float>()
+                        },
+                        true 
+                    });
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+        }
+        
         ImGui::Separator();
         if (ImGui::Button("Close", ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
@@ -487,6 +760,11 @@ void App::DrawPresetWindow() {
     }
 
     ImGui::End();
+}
+
+void App::DeletePoint(SceneData::Point& point) { // this isnt good
+    point.hidden = true;
+    point.name = "deleted";
 }
 
 void App::DrawDihedralViewport() {
@@ -552,7 +830,6 @@ void App::DrawDihedralViewport() {
         drawList->AddLine(pos1, pos2, lineColor, 1.0f);
     }
     
-    // Draw lines between points
     for (const auto& line : m_sceneData.lines) {
         const auto& p1 = m_sceneData.points[line.point1index];
         const auto& p2 = m_sceneData.points[line.point2index];
@@ -569,9 +846,6 @@ void App::DrawDihedralViewport() {
         ImVec2 p1_r2(cursorPos.x + viewportSize.x / 2 + x1 * 10, (cursorPos.y + viewportSize.y / 2) - y1 * 10);
         ImVec2 p2_r2(cursorPos.x + viewportSize.x / 2 + x2 * 10, (cursorPos.y + viewportSize.y / 2) - y3 * 10);
         
-        float m_r2 = (p2_r2.y - p1_r2.y) / (p2_r2.x - p1_r2.x);
-        float b_r2 = p1_r2.y - m_r2 * p1_r2.x;
-        
         float r2_minX = cursorPos.x;
         float r2_maxX = cursorPos.x + viewportSize.x;
         float r2_minY = cursorPos.y;
@@ -579,12 +853,27 @@ void App::DrawDihedralViewport() {
         
         ImVec2 edge1_r2, edge2_r2;
         
-        if (abs(p2_r2.x - p1_r2.x) > abs(p2_r2.y - p1_r2.y)) {
-            edge1_r2 = ImVec2(r2_minX, m_r2 * r2_minX + b_r2);
-            edge2_r2 = ImVec2(r2_maxX, m_r2 * r2_maxX + b_r2);
-        } else {
-            edge1_r2 = ImVec2((r2_minY - b_r2) / m_r2, r2_minY);
-            edge2_r2 = ImVec2((r2_maxY - b_r2) / m_r2, r2_maxY);
+        // Handle vertical lines (x1 == x2)
+        if (abs(p2_r2.x - p1_r2.x) < 0.0001f) {
+            edge1_r2 = ImVec2(p1_r2.x, r2_minY);
+            edge2_r2 = ImVec2(p1_r2.x, r2_maxY);
+        }
+        // Handle horizontal lines (y1 == y2)
+        else if (abs(p2_r2.y - p1_r2.y) < 0.0001f) {
+            edge1_r2 = ImVec2(r2_minX, p1_r2.y);
+            edge2_r2 = ImVec2(r2_maxX, p1_r2.y);
+        }
+        else {
+            float m_r2 = (p2_r2.y - p1_r2.y) / (p2_r2.x - p1_r2.x);
+            float b_r2 = p1_r2.y - m_r2 * p1_r2.x;
+            
+            if (abs(p2_r2.x - p1_r2.x) > abs(p2_r2.y - p1_r2.y)) {
+                edge1_r2 = ImVec2(r2_minX, m_r2 * r2_minX + b_r2);
+                edge2_r2 = ImVec2(r2_maxX, m_r2 * r2_maxX + b_r2);
+            } else {
+                edge1_r2 = ImVec2((r2_minY - b_r2) / m_r2, r2_minY);
+                edge2_r2 = ImVec2((r2_maxY - b_r2) / m_r2, r2_maxY);
+            }
         }
         
         drawList->AddLine(edge1_r2, edge2_r2, 
@@ -594,9 +883,6 @@ void App::DrawDihedralViewport() {
         ImVec2 p1_r1(cursorPos.x + viewportSize.x / 2 + x1 * 10, (cursorPos.y + viewportSize.y / 2) - y2 * 10);
         ImVec2 p2_r1(cursorPos.x + viewportSize.x / 2 + x2 * 10, (cursorPos.y + viewportSize.y / 2) - y4 * 10);
         
-        float m_r1 = (p2_r1.y - p1_r1.y) / (p2_r1.x - p1_r1.x);
-        float b_r1 = p1_r1.y - m_r1 * p1_r1.x;
-        
         float r1_minX = cursorPos.x;
         float r1_maxX = cursorPos.x + viewportSize.x;
         float r1_minY = cursorPos.y;
@@ -604,12 +890,27 @@ void App::DrawDihedralViewport() {
         
         ImVec2 edge1_r1, edge2_r1;
         
-        if (abs(p2_r1.x - p1_r1.x) > abs(p2_r1.y - p1_r1.y)) {
-            edge1_r1 = ImVec2(r1_minX, m_r1 * r1_minX + b_r1);
-            edge2_r1 = ImVec2(r1_maxX, m_r1 * r1_maxX + b_r1);
-        } else {
-            edge1_r1 = ImVec2((r1_minY - b_r1) / m_r1, r1_minY);
-            edge2_r1 = ImVec2((r1_maxY - b_r1) / m_r1, r1_maxY);
+        // Handle vertical lines (x1 == x2)
+        if (abs(p2_r1.x - p1_r1.x) < 0.0001f) {
+            edge1_r1 = ImVec2(p1_r1.x, r1_minY);
+            edge2_r1 = ImVec2(p1_r1.x, r1_maxY);
+        }
+        // Handle horizontal lines (y1 == y2)
+        else if (abs(p2_r1.y - p1_r1.y) < 0.0001f) {
+            edge1_r1 = ImVec2(r1_minX, p1_r1.y);
+            edge2_r1 = ImVec2(r1_maxX, p1_r1.y);
+        }
+        else {
+            float m_r1 = (p2_r1.y - p1_r1.y) / (p2_r1.x - p1_r1.x);
+            float b_r1 = p1_r1.y - m_r1 * p1_r1.x;
+            
+            if (abs(p2_r1.x - p1_r1.x) > abs(p2_r1.y - p1_r1.y)) {
+                edge1_r1 = ImVec2(r1_minX, m_r1 * r1_minX + b_r1);
+                edge2_r1 = ImVec2(r1_maxX, m_r1 * r1_maxX + b_r1);
+            } else {
+                edge1_r1 = ImVec2((r1_minY - b_r1) / m_r1, r1_minY);
+                edge2_r1 = ImVec2((r1_maxY - b_r1) / m_r1, r1_maxY);
+            }
         }
         
         drawList->AddLine(edge1_r1, edge2_r1, 
@@ -618,7 +919,7 @@ void App::DrawDihedralViewport() {
         // draw labels
         ImGui::SetCursorScreenPos(ImVec2((edge1_r1.x + edge2_r1.x) / 2 - 20, (edge1_r1.y + edge2_r1.y) / 2 - 20));
         ImGui::Text("%c1", line.name[0]);
-        ImGui::SetCursorScreenPos(ImVec2((edge1_r2.x + edge2_r2.x) / 2 - 20, (edge1_r2.y + edge2_r2.y) / 2 - 20));
+        ImGui::SetCursorScreenPos(ImVec2((edge1_r2.x + edge2_r2.x) / 2 + 10, (edge1_r2.y + edge2_r2.y) / 2 - 20));
         ImGui::Text("%c2", line.name[0]);
     }
 

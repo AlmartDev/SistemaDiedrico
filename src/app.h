@@ -37,11 +37,16 @@ private:
     // UI Drawing functions
     void DrawMenuBar();
     void DrawSettingsWindow();
-    void DrawTabsWindow();
+    
     void DrawPresetWindow();
+    
+    void DrawTabsWindow();
     void DrawPointsTab();
     void DrawLinesTab();
+    void DrawPlanesTab();
 
+    void DeletePoint(SceneData::Point& point);
+    
     GLFWwindow* m_window;
     Renderer m_renderer;
     Camera m_camera;

@@ -8,6 +8,7 @@ namespace {
     GLuint s_VAO, s_VBO, s_shaderProgram;
     GLuint s_dihedralVAO, s_dihedralVBO;
     GLuint s_pointVAO, s_pointVBO;  // For point rendering
+    GLuint s_planeVAO, s_planeVBO;  // For plane rendering
 
     const char* s_vertexShaderSource = R"(
         #version 300 es
@@ -29,6 +30,17 @@ namespace {
         uniform vec3 color;
         void main() {
             FragColor = vec4(color, 0.6); 
+        }
+    )";
+
+    const char* s_planeFragmentShaderSource = R"(
+        #version 300 es
+        precision highp float;
+        out vec4 FragColor;
+        uniform vec3 color;
+        uniform float opacity;
+        void main() {
+            FragColor = vec4(color, opacity); 
         }
     )";
 
@@ -66,13 +78,25 @@ bool Renderer::Initialize() {
     glShaderSource(fragmentShader, 1, &s_fragmentShaderSource, nullptr);
     glCompileShader(fragmentShader);
 
+    GLuint planeFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(planeFragmentShader, 1, &s_planeFragmentShaderSource, nullptr);
+    glCompileShader(planeFragmentShader);
+
+    // Create main shader program
     s_shaderProgram = glCreateProgram();
     glAttachShader(s_shaderProgram, vertexShader);
     glAttachShader(s_shaderProgram, fragmentShader);
     glLinkProgram(s_shaderProgram);
 
+    // Create plane shader program (same vertex shader but different fragment shader)
+    GLuint planeShaderProgram = glCreateProgram();
+    glAttachShader(planeShaderProgram, vertexShader);
+    glAttachShader(planeShaderProgram, planeFragmentShader);
+    glLinkProgram(planeShaderProgram);
+
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+    glDeleteShader(planeFragmentShader);
 
     // Setup axes VAO/VBO
     glGenVertexArrays(1, &s_VAO);
@@ -101,6 +125,17 @@ bool Renderer::Initialize() {
     glGenBuffers(1, &s_pointVBO);
     glBindVertexArray(s_pointVAO);
     glBindBuffer(GL_ARRAY_BUFFER, s_pointVBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    // Setup plane rendering VAO/VBO
+    glGenVertexArrays(1, &s_planeVAO);
+    glGenBuffers(1, &s_planeVBO);
+    glBindVertexArray(s_planeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, s_planeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(s_planeVertices), s_planeVertices, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -176,9 +211,7 @@ void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lin
     glGenBuffers(1, &linesVBO);
     
     glUseProgram(s_shaderProgram);
-    glLineWidth(thickness);
-
-    for (size_t i = 0; i < lines.size(); i++) { // TODO: Thickness is only working for the cut lines, not the main line
+    for (size_t i = 0; i < lines.size(); i++) {
         // Prepare line vertices (start and end points)
         const auto& line = lines[i];
         std::vector<glm::vec3> lineVertices = {line.first, line.second};
@@ -204,7 +237,8 @@ void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lin
             glDrawArrays(GL_LINES, 2, 2);  // z=0 projection
         }
 
-        // Draw main line
+        // Draw main line with thickness
+        glLineWidth(thickness);
         glBindVertexArray(linesVAO);
         glBindBuffer(GL_ARRAY_BUFFER, linesVBO);
         glBufferData(GL_ARRAY_BUFFER, lineVertices.size() * sizeof(glm::vec3), lineVertices.data(), GL_STATIC_DRAW);
@@ -212,13 +246,98 @@ void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lin
         glEnableVertexAttribArray(0);
 
         glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), colors[i].r, colors[i].g, colors[i].b);
-        glLineWidth(1.0f); // original line width (so it doesnt mess up with the cartesian lines) TODO: change this with a parameter
         glDrawArrays(GL_LINES, 0, 2);
+
+        if (m_showCutLines) {
+            // Draw cut lines (projections)
+            glBindVertexArray(linesVAO);
+            glBindBuffer(GL_ARRAY_BUFFER, linesVBO);
+            glBufferData(GL_ARRAY_BUFFER, cutLines.size() * sizeof(glm::vec3), cutLines.data(), GL_STATIC_DRAW);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+            glEnableVertexAttribArray(0);
+
+            glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), 0.0f, 1.0f, 0.0f);
+            glDrawArrays(GL_LINES, 0, 2);  // y=0 projection
+            glDrawArrays(GL_LINES, 2, 2);  // z=0 projection
+        }
+
+        // Reset line width
+        glLineWidth(1.0f);
     }
     
     glBindVertexArray(0);
     glDeleteVertexArrays(1, &linesVAO);
     glDeleteBuffers(1, &linesVBO);
+}
+
+void Renderer::DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes, 
+                         const std::vector<glm::vec3>& colors,
+                         float opacity) {
+    if (planes.empty() || planes.size() != colors.size()) return;
+
+    // Create a temporary shader program for planes
+    GLuint planeShaderProgram = glCreateProgram();
+    
+    // Recompile vertex shader
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &s_vertexShaderSource, nullptr);
+    glCompileShader(vertexShader);
+    
+    // Recompile plane fragment shader
+    GLuint planeFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(planeFragmentShader, 1, &s_planeFragmentShaderSource, nullptr);
+    glCompileShader(planeFragmentShader);
+    
+    glAttachShader(planeShaderProgram, vertexShader);
+    glAttachShader(planeShaderProgram, planeFragmentShader);
+    glLinkProgram(planeShaderProgram);
+    
+    glDeleteShader(vertexShader);
+    glDeleteShader(planeFragmentShader);
+
+    glUseProgram(planeShaderProgram);
+    
+    // Set view and projection matrices
+    glUniformMatrix4fv(glGetUniformLocation(planeShaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(m_viewMatrix));
+    glUniformMatrix4fv(glGetUniformLocation(planeShaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
+    
+    // Enable depth testing but allow semi-transparent planes
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    for (size_t i = 0; i < planes.size(); i++) {
+        const auto& plane = planes[i];
+        if (plane.size() < 3) continue;
+
+        // Create temporary VAO/VBO for this plane
+        GLuint planeVAO, planeVBO;
+        glGenVertexArrays(1, &planeVAO);
+        glGenBuffers(1, &planeVBO);
+        
+        glBindVertexArray(planeVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+        glBufferData(GL_ARRAY_BUFFER, plane.size() * sizeof(glm::vec3), plane.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+        glEnableVertexAttribArray(0);
+        
+        // Set color and opacity
+        glUniform3f(glGetUniformLocation(planeShaderProgram, "color"), 
+                   colors[i].r, colors[i].g, colors[i].b);
+        glUniform1f(glGetUniformLocation(planeShaderProgram, "opacity"), opacity);
+        
+        // Draw the plane
+        glDrawArrays(GL_TRIANGLE_FAN, 0, static_cast<GLsizei>(plane.size()));
+        
+        // Clean up
+        glBindVertexArray(0);
+        glDeleteVertexArrays(1, &planeVAO);
+        glDeleteBuffers(1, &planeVBO);
+    }
+
+    // Clean up the temporary shader program
+    glDeleteProgram(planeShaderProgram);
 }
 
 void Renderer::DrawAxes() {

@@ -48,6 +48,16 @@ public:
         return presets;
     }
 
+    std::vector<nlohmann::json> GetPlanePresets() {
+        std::vector<nlohmann::json> presets;
+        if (m_jsonData.contains("presets") && m_jsonData["presets"].contains("planes")) {
+            for (const auto& preset : m_jsonData["presets"]["planes"]) {
+                presets.push_back(preset);
+            }
+        }
+        return presets;
+    }
+
 private:
     std::string m_filename;
     nlohmann::json m_jsonData;
