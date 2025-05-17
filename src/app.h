@@ -23,7 +23,10 @@ public:
 
     bool Initialize();
     void Run();
+    void Frame(); // added for web support
     void Shutdown();
+
+    GLFWwindow* GetWindow() const { return m_window; }
 
 private:
     void DrawDihedralViewport();

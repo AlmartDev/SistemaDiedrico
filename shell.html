@@ -2,115 +2,31 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Diedrico Web Build</title>
+    <title>WebGL Test</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: rgb(148, 255, 166);
-        }
-        #canvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
-        }
-        .emscripten {
-            padding-right: 0;
-            margin-left: auto;
-            margin-right: auto;
-            display: block;
+        body { margin: 0; overflow: hidden; }
+        #canvas { 
+            display: block; 
+            width: 100vw; 
+            height: 100vh; 
+            background: black;
         }
     </style>
 </head>
 <body>
-    <canvas id="canvas" tabindex="0"></canvas>
+    <canvas id="canvas"></canvas>
     <script>
-        var Module = {
-            canvas: (function() {
-                var canvas = document.getElementById('canvas');
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-                
-                window.addEventListener('resize', function() {
-                    if (Module['setCanvasSize']) {
-                        Module['setCanvasSize'](window.innerWidth, window.innerHeight);
-                    }
-                    canvas.width = window.innerWidth;
-                    canvas.height = window.innerHeight;
-                });
-                
-                // Handle focus for keyboard input
-                canvas.addEventListener('click', function() {
-                    canvas.focus();
-                });
-                
-                return canvas;
-            })(),
-            
-            print: (function() {
-                return function(text) {
-                    console.log(text);
-                };
-            })(),
-            
-            printErr: function(text) {
-                console.error(text);
-            },
-            
-            onRuntimeInitialized: function() {
-                console.log("Runtime initialized");
-                // You can call your main function here if needed
-            }
-        };
-    </script>
-    <script>
-        function checkGLFW() {
-            if (Module._glfwGetTime) {
-                console.log("GLFW time:", Module._glfwGetTime());
-            } else {
-                console.error("GLFW functions not exported");
-            }
+    var Module = {
+        canvas: document.getElementById('canvas'),
+        onRuntimeInitialized: function() {
+            console.log('WASM loaded');
+            // Force canvas size
+            var canvas = Module.canvas;
+            canvas.width = canvas.clientWidth * window.devicePixelRatio;
+            canvas.height = canvas.clientHeight * window.devicePixelRatio;
+            console.log('Canvas size:', canvas.width, 'x', canvas.height);
         }
-
-        Module.onRuntimeInitialized = function() {
-            setInterval(checkGLFW, 1000);
-        };
-    </script>
-    <script>
-        function checkWebGL() {
-            const canvas = document.getElementById('canvas');
-            const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-            
-            if (!gl) {
-                console.error("WebGL not supported or initialization failed");
-                document.body.innerHTML = "<h1>WebGL initialization failed</h1>";
-                return false;
-            }
-            console.log("WebGL context successfully created");
-            return true;
-        }
-
-        // Run this after page load
-        window.addEventListener('load', checkWebGL);
-    </script>
-    <script>
-        Module = {
-            print: console.log.bind(console),
-            printErr: console.error.bind(console),
-            onRuntimeInitialized: function() {
-                console.log("Module initialized");
-                
-                // Test GLFW functions
-                if (typeof Module._glfwInit === 'function') {
-                    console.log("GLFW functions detected");
-                    const initResult = Module.ccall('glfwInit', 'number');
-                    console.log("glfwInit result:", initResult);
-                } else {
-                    console.error("GLFW functions not found in module");
-                }
-            }
-        };
+    };
     </script>
     {{{ SCRIPT }}}
 </body>

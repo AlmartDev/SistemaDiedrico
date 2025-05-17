@@ -10,13 +10,23 @@
 
 double App::m_scrollY = 0.0;
 
-App::App() : m_window(nullptr), m_jsonHandler("./assets/presets.json") {}
+#ifndef __EMSCRIPTEN__
+    App::App() : m_window(nullptr), m_jsonHandler("./assets/presets.json") {}
+#else
+    App::App() : m_window(nullptr), m_jsonHandler(nullptr) {}
+#endif
 
 bool App::Initialize() {
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW\n";
         return false;
     }
+
+    // Add these hints specifically for Emscripten
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     m_window = glfwCreateWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Sistema Diedrico", nullptr, nullptr);
     if (!m_window) {
@@ -32,10 +42,6 @@ bool App::Initialize() {
         app->m_windowHeight = height;
     });
 
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-
     glfwMakeContextCurrent(m_window);
 
 #ifndef __EMSCRIPTEN__
@@ -44,6 +50,9 @@ bool App::Initialize() {
         return false;
     }
 #endif
+
+    printf("GLFW initialized: %d\n", glfwInit());
+    printf("Window created: %p\n", m_window);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -70,17 +79,20 @@ void App::SetupImGui() {
     SetCustomStyle();
 
     ImGuiIO& io = ImGui::GetIO();
+    
+#ifndef __EMSCRIPTEN__
     m_font = io.Fonts->AddFontFromFileTTF("./assets/Roboto-Regular.ttf", m_sceneData.settings.fontSize);
-
     // load imgui.ini
     ImGui::GetIO().IniFilename = "./assets/imgui.ini";
-    
-    ImGui_ImplGlfw_InitForOpenGL(m_window, true);
+#endif
 
+    // Initialize ImGui backends
+    ImGui_ImplGlfw_InitForOpenGL(m_window, true);
+    
 #ifdef __EMSCRIPTEN__
     ImGui_ImplOpenGL3_Init("#version 300 es");
 #else
-    ImGui_ImplOpenGL3_Init("#version 330");
+    ImGui_ImplOpenGL3_Init("#version 100");
 #endif
 }
 
@@ -1037,39 +1049,43 @@ void App::DrawDihedralViewport() {
 
 void App::Run() {
     while (!glfwWindowShouldClose(m_window)) {
-        glfwPollEvents();
-        
-        glfwGetWindowSize(m_window, &m_windowWidth, &m_windowHeight);
-        
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-        
-        HandleInput();
-
-        glClearColor(
-            m_sceneData.settings.backgroundColor[0], 
-            m_sceneData.settings.backgroundColor[1], 
-            m_sceneData.settings.backgroundColor[2], 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        int viewportWidth = m_windowWidth;
-        int viewportHeight = m_windowHeight;
-        int viewportX = (m_windowWidth - viewportWidth) / 2;
-        int viewportY = (m_windowHeight - viewportHeight) / 2;
-        
-        glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
-
-        DrawUI();
-
-        m_renderer.Render();
-        PrepareRenderData();
-        m_renderer.UpdateCamera(m_camera, viewportWidth, viewportHeight);
-        
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        glfwSwapBuffers(m_window);
+        Frame();
     }
+}
+
+void App::Frame(){
+    glfwPollEvents();
+        
+    glfwGetWindowSize(m_window, &m_windowWidth, &m_windowHeight);
+        
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+        
+    HandleInput();
+
+    glClearColor(
+        m_sceneData.settings.backgroundColor[0], 
+        m_sceneData.settings.backgroundColor[1], 
+        m_sceneData.settings.backgroundColor[2], 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+    int viewportWidth = m_windowWidth;
+    int viewportHeight = m_windowHeight;
+    int viewportX = (m_windowWidth - viewportWidth) / 2;
+    int viewportY = (m_windowHeight - viewportHeight) / 2;
+        
+    glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+
+    DrawUI();
+
+    m_renderer.Render();
+    PrepareRenderData();
+    m_renderer.UpdateCamera(m_camera, viewportWidth, viewportHeight);
+        
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    glfwSwapBuffers(m_window);
 }
 
 void App::Shutdown() {

@@ -66,25 +66,23 @@ if(BUILD_WEB)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     
     target_compile_options(${PROJECT_NAME} PRIVATE
-        "-Wno-nontrivial-memcall"
-        "-Wno-deprecated-declarations"
+        "-sUSE_WEBGL2=1"
+        "-sMIN_WEBGL_VERSION=2"
+        "-sMAX_WEBGL_VERSION=2"
+        "-sFULL_ES3=1"
+        "-sGL_POOL_TEMP_BUFFERS=0"
     )
-
-    # Web-specific linker options - UPDATED SECTION
+    
     target_link_options(${PROJECT_NAME} PRIVATE
-        "SHELL:-o ${PROJECT_NAME}.html"
-        "SHELL:-s USE_GLFW=3"
         "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/shell.html"
-        "SHELL:-s WASM=1"
-        "SHELL:-s ALLOW_MEMORY_GROWTH=1"
-        "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','FS']"
-        "SHELL:-s FORCE_FILESYSTEM=1"
-        "SHELL:-s MODULARIZE=1"
-        "SHELL:-s EXPORT_NAME='createDiedricoModule'"
-        
-        # Debug flags (remove for production)
-        "SHELL:-s ASSERTIONS=1"
-        "SHELL:-s GL_DEBUG=1"
+        "SHELL:-sWASM=1"
+        "SHELL:-sUSE_WEBGL2=1"
+        "SHELL:-sMIN_WEBGL_VERSION=2"
+        "SHELL:-sMAX_WEBGL_VERSION=2"
+        "SHELL:-sFULL_ES3=1"
+        "SHELL:-sGL_POOL_TEMP_BUFFERS=0"
+        "SHELL:-sASSERTIONS=1"
+        "SHELL:-sGL_DEBUG=1"
     )
 endif()
 

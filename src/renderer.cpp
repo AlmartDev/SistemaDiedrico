@@ -4,45 +4,46 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#ifndef GL_PROGRAM_POINT_SIZE
+#define GL_PROGRAM_POINT_SIZE 0x8642
+#endif
+
 namespace {
     GLuint s_VAO, s_VBO, s_shaderProgram;
     GLuint s_dihedralVAO, s_dihedralVBO;
     GLuint s_pointVAO, s_pointVBO;  // For point rendering
     GLuint s_planeVAO, s_planeVBO;  // For plane rendering
 
-    const char* s_vertexShaderSource = R"(
-        #version 300 es
-        precision highp float;
-        layout(location = 0) in vec3 aPos;
-        uniform mat4 view;
-        uniform mat4 projection;
-        uniform float pointSize;
-        void main() {
-            gl_Position = projection * view * vec4(aPos, 1.0);
-            gl_PointSize = pointSize;
-        }
-    )";
+    const char* s_vertexShaderSource = 
+        "#version 300 es\n"
+        "precision highp float;\n"
+        "layout(location = 0) in vec3 aPos;\n"
+        "uniform mat4 view;\n"
+        "uniform mat4 projection;\n"
+        "uniform float pointSize;\n"
+        "void main() {\n"
+        "    gl_Position = projection * view * vec4(aPos, 1.0);\n"
+        "    gl_PointSize = pointSize;\n"
+        "}\n";
 
-    const char* s_fragmentShaderSource = R"(
-        #version 300 es
-        precision highp float;
-        out vec4 FragColor;
-        uniform vec3 color;
-        void main() {
-            FragColor = vec4(color, 0.6); 
-        }
-    )";
+    const char* s_fragmentShaderSource = 
+        "#version 300 es\n"
+        "precision highp float;\n"
+        "out vec4 FragColor;\n"
+        "uniform vec3 color;\n"
+        "void main() {\n"
+        "    FragColor = vec4(color, 0.6);\n"
+        "}\n";
 
-    const char* s_planeFragmentShaderSource = R"(
-        #version 300 es
-        precision highp float;
-        out vec4 FragColor;
-        uniform vec3 color;
-        uniform float opacity;
-        void main() {
-            FragColor = vec4(color, opacity); 
-        }
-    )";
+    const char* s_planeFragmentShaderSource = 
+        "#version 300 es\n"
+        "precision highp float;\n"
+        "out vec4 FragColor;\n"
+        "uniform vec3 color;\n"
+        "uniform float opacity;\n"
+        "void main() {\n"
+        "    FragColor = vec4(color, opacity);\n"
+        "}\n";
 
     const GLfloat s_axesVertices[] = {
         // 3D Axes (type 0)
