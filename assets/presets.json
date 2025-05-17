@@ -129,13 +129,84 @@
         "planes": 
         [
             {
-                "name": "a",
-                "description": "Plano Cualquiera",
-                "coords": {
-                    "x": 48,
-                    "y": 48,
-                    "z": 48
-                }
+                "name": "1BIS",
+                "description": "1er Bisector",
+                "point1": {
+                    "d": 48,
+                    "a": 48,
+                    "c": 48
+                },
+                "point2": {
+                    "d": 0,
+                    "a": 0,
+                    "c": 0
+                },
+                "point3": {
+                    "d": -48,
+                    "a": 48,
+                    "c": 48
+                },
+                "expand": true
+            },
+            {
+                "name": "2BIS",
+                "description": "2do Bisector",
+                "point1": {
+                    "d": 48,
+                    "a": -48,
+                    "c": 48
+                },
+                "point2": {
+                    "d": 0,
+                    "a": 0,
+                    "c": 0
+                },
+                "point3": {
+                    "d": -48,
+                    "a": -48,
+                    "c": 48
+                },
+                "expand": true
+            },
+            {
+                "name": "PP",
+                "description": "Plano de Perfil",
+                "point1": {
+                    "d": 0,
+                    "a": 48,
+                    "c": 0
+                },
+                "point2": {
+                    "d": 0,
+                    "a": -48,
+                    "c": 0
+                },
+                "point3": {
+                    "d": 0,
+                    "a": 0,
+                    "c": 48
+                },
+                "expand": true
+            },
+            {
+                "name": "Q",
+                "description": "Plano cualquiera",
+                "point1": {
+                    "d": 48,
+                    "a": 0,
+                    "c": 0
+                },
+                "point2": {
+                    "d": -48,
+                    "a": 48,
+                    "c": 48
+                },
+                "point3": {
+                    "d": -49,
+                    "a": -30,
+                    "c": 41
+                },
+                "expand": true
             }
         ]
     }

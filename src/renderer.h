@@ -25,7 +25,8 @@ public:
 
     void DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes, 
                    const std::vector<glm::vec3>& colors,
-                   float opacity = 0.6f);
+                   std::vector<bool>& expand,
+                   float opacity);
 
     void SetAxesType(int type) { m_axesType = type; }
     void SetDihedralsVisible(bool visible) { m_showDihedral = visible; }
@@ -33,8 +34,6 @@ public:
     void SetCutPointVisible(bool visible) { m_showCutPoints = visible; }
     void SetCutLineVisible(bool visible) { m_showCutLines = visible; }
     void SetCutPlaneVisible(bool visible) { m_showCutPlanes = visible; }
-
-    void SetExpandedPlanes(bool expanded) { m_expandPlanes = expanded; }
 
 private:
     void DrawAxes();
@@ -45,8 +44,6 @@ private:
     bool m_showCutPoints = true;
     bool m_showCutLines = true;
     bool m_showCutPlanes = true;
-
-    bool m_expandPlanes = false;
 
     glm::mat4 m_viewMatrix;
     glm::mat4 m_projectionMatrix;

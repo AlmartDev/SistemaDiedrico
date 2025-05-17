@@ -25,6 +25,7 @@ struct SceneData {
         int point2index;
         int point3index;
         float color[3] = {0.5f, 0.5f, 0.5f}; // gray
+        bool expand = false;
     };
 
     struct Settings {

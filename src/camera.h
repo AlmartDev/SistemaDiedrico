@@ -22,8 +22,8 @@ private:
     float m_sensitivity = 0.5f;
     glm::vec3 m_position;
     float m_distance;
-    float m_yaw = -90.0f;   // Initial yaw (looking along -Z)
-    float m_pitch = 0.0f;   // Initial pitch (level)
+    float m_yaw = 135.0f;   // Initial yaw
+    float m_pitch = 25.0f;   // Initial pitch
 };
 
 #endif // CAMERA_H

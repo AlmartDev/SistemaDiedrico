@@ -272,8 +272,9 @@ void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lin
 
 void Renderer::DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes, 
                          const std::vector<glm::vec3>& colors,
+                         std::vector<bool>& expand,
                          float opacity) {
-    if (planes.empty() || planes.size() != colors.size()) return;
+    if (planes.empty() || planes.size() != colors.size() || planes.size() != expand.size()) return;
 
     // Create a temporary shader program for planes
     GLuint planeShaderProgram = glCreateProgram();
@@ -311,14 +312,50 @@ void Renderer::DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes,
         const auto& plane = planes[i];
         if (plane.size() < 3) continue;
 
-        // Create temporary VAO/VBO for this plane
+        std::vector<glm::vec3> vertices;
+        
+        if (expand[i]) {
+            glm::vec3 normal = glm::normalize(glm::cross(plane[1] - plane[0], plane[2] - plane[0]));
+            float planeConstant = -glm::dot(normal, plane[0]); // d in plane equation
+            
+            glm::vec3 right, forward;
+            
+            // Handle case where normal is nearly vertical
+            if (fabs(normal.y) > 0.999f) {
+                right = glm::vec3(1, 0, 0);
+                forward = glm::vec3(0, 0, 1);
+            } else {
+                right = glm::normalize(glm::cross(normal, glm::vec3(0, 1, 0)));
+                forward = glm::normalize(glm::cross(normal, right));
+            }
+
+            float size = 1.1f; // size of expanded plane
+            
+            glm::vec3 planeCenter = -normal * planeConstant; // closest point on plane to origin
+            
+            vertices = {
+                planeCenter + (right + forward) * size,
+                planeCenter + (right - forward) * size,
+                planeCenter + (-right - forward) * size,
+                planeCenter + (-right + forward) * size
+            };
+            
+            for (auto& v : vertices) {
+                v.x = glm::clamp(v.x, -50.0f, 50.0f);
+                v.y = glm::clamp(v.y, -50.0f, 50.0f);
+                v.z = glm::clamp(v.z, -50.0f, 50.0f);
+            }
+        } else {
+            vertices = plane;
+        }
+
         GLuint planeVAO, planeVBO;
         glGenVertexArrays(1, &planeVAO);
         glGenBuffers(1, &planeVBO);
         
         glBindVertexArray(planeVAO);
         glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
-        glBufferData(GL_ARRAY_BUFFER, plane.size() * sizeof(glm::vec3), plane.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
         glEnableVertexAttribArray(0);
         
@@ -328,7 +365,11 @@ void Renderer::DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes,
         glUniform1f(glGetUniformLocation(planeShaderProgram, "opacity"), opacity);
         
         // Draw the plane
-        glDrawArrays(GL_TRIANGLE_FAN, 0, static_cast<GLsizei>(plane.size()));
+        if (expand[i]) {
+            glDrawArrays(GL_TRIANGLE_FAN, 0, static_cast<GLsizei>(vertices.size()));
+        } else {
+            glDrawArrays(GL_TRIANGLE_FAN, 0, static_cast<GLsizei>(vertices.size()));
+        }
         
         // Clean up
         glBindVertexArray(0);
@@ -336,7 +377,6 @@ void Renderer::DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes,
         glDeleteBuffers(1, &planeVBO);
     }
 
-    // Clean up the temporary shader program
     glDeleteProgram(planeShaderProgram);
 }
 

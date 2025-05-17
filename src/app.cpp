@@ -106,10 +106,10 @@ void App::HandleInput() {
         m_isMousePressed = false;
     }
 
-    if (m_scrollY != 0) {
-        m_camera.SetDistance(m_camera.GetDistance() - static_cast<float>(m_scrollY) * .3f);
-        m_scrollY = 0.0;
-    }
+    //if (m_scrollY != 0) {
+    //    m_camera.SetDistance(m_camera.GetDistance() - static_cast<float>(m_scrollY) * .3f);
+    //    m_scrollY = 0.0;
+    //}
 
     if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(m_window, true);
@@ -139,6 +139,7 @@ void App::PrepareRenderData() {
 
     std::vector<std::vector<glm::vec3>> planePositions;
     std::vector<glm::vec3> planeColors;
+    std::vector<bool> planeExpand;
 
     for (const auto& plane : m_sceneData.planes) {
         const auto& point1 = m_sceneData.points[plane.point1index];
@@ -151,11 +152,13 @@ void App::PrepareRenderData() {
             glm::vec3(point3.coords[0]/50, point3.coords[2]/50, point3.coords[1]/50)
         });
         planeColors.emplace_back(plane.color[0], plane.color[1], plane.color[2]);
+
+        planeExpand.push_back(plane.expand);
     }
 
     m_renderer.DrawPoints(pointPositions, pointColors, m_sceneData.settings.pointSize);
     m_renderer.DrawLines(linePositions, lineColors, m_sceneData.settings.lineThickness);
-    m_renderer.DrawPlanes(planePositions, planeColors, m_sceneData.settings.planeOpacity);
+    m_renderer.DrawPlanes(planePositions, planeColors, planeExpand, m_sceneData.settings.planeOpacity);
 }
 
 void App::DrawUI() {
@@ -183,7 +186,7 @@ void App::DrawMenuBar() {
         }
         
         if (ImGui::BeginMenu("About")) {
-            ImGui::Text("Version 0.4");
+            ImGui::Text("Version 0.5");
             ImGui::Text("Made by Alonso Martínez");
             ImGui::Text("@almartdev on GitHub");
             ImGui::EndMenu();
@@ -210,12 +213,15 @@ void App::DrawSettingsWindow() {
     }
     
     ImGui::SliderFloat("Mouse Sensitivity", &m_sceneData.settings.mouseSensitivity, 0.0f, 2.0f);
-    m_camera.SetSensitivity(m_sceneData.settings.mouseSensitivity);    
+    m_camera.SetSensitivity(m_sceneData.settings.mouseSensitivity); 
+    
+    ImGui::SliderFloat("Camera Distance", &m_sceneData.settings.cameraDistance, 0.1f, 25.0f);
+    m_camera.SetDistance(m_sceneData.settings.cameraDistance);
 
-    ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)", 
+    /*ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)", 
                 m_camera.GetPosition().x, 
                 m_camera.GetPosition().y, 
-                m_camera.GetPosition().z);
+                m_camera.GetPosition().z);*/
 
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
     ImGui::End();
@@ -402,12 +408,11 @@ void App::DrawLinesTab() {
 
     // Draw line list with better styling
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
-    if (ImGui::BeginTable("LineTable", 5, ImGuiTableFlags_NoHostExtendX                
+    if (ImGui::BeginTable("LineTable", 4, ImGuiTableFlags_NoHostExtendX                
                                         | ImGuiTableFlags_RowBg  
                                         | ImGuiTableFlags_Resizable )) {
         ImGui::TableSetupColumn("Name");
         ImGui::TableSetupColumn("Points");
-        ImGui::TableSetupColumn("Hide Points");
         ImGui::TableSetupColumn("Color");
         ImGui::TableSetupColumn("Delete");
         ImGui::TableHeadersRow();
@@ -428,21 +433,21 @@ void App::DrawLinesTab() {
                 m_sceneData.points[line.point1index].name.c_str(),
                 m_sceneData.points[line.point2index].name.c_str());
 
-            ImGui::TableSetColumnIndex(2);
+            /*ImGui::TableSetColumnIndex(2);
             bool pointsHidden = m_sceneData.points[line.point1index].hidden && m_sceneData.settings.showCutPoints;
             if (ImGui::Checkbox("##Hide", &pointsHidden)) {
                 m_sceneData.points[line.point1index].hidden = pointsHidden;
                 m_sceneData.points[line.point2index].hidden = pointsHidden;
-            }
+            }*/
 
-            ImGui::TableSetColumnIndex(3);
+            ImGui::TableSetColumnIndex(2);
             if (ImGui::ColorEdit4("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
                 line.color[0] = color.x;
                 line.color[1] = color.y;
                 line.color[2] = color.z;
             }
 
-            ImGui::TableSetColumnIndex(4);
+            ImGui::TableSetColumnIndex(3);
             if (ImGui::Button("X")) {
                 m_sceneData.lines.erase(m_sceneData.lines.begin() + i);
                 DeletePoint(m_sceneData.points[line.point1index]);
@@ -461,86 +466,116 @@ void App::DrawLinesTab() {
 }
 
 void App::DrawPlanesTab() {
-    ImGui::Text("Planes are defined by 3 unalined points");
     static char planeName[128] = "";
     ImGui::InputText("Name", planeName, sizeof(planeName));
 
-    // TODO: add option to create a plane with coordinates (instead of 3 points)
-
-    static int selectedPoint1 = -1;
-    static int selectedPoint2 = -1;
-    static int selectedPoint3 = -1;
-
-    // filtered list of visible points
-    std::vector<int> visiblePointIndices;
-    std::vector<const char*> visiblePointNames;
-    for (size_t i = 0; i < m_sceneData.points.size(); ++i) {
-        if (!m_sceneData.points[i].hidden) {
-            visiblePointIndices.push_back(static_cast<int>(i));
-            visiblePointNames.push_back(m_sceneData.points[i].name.c_str());
-        }
-    }
-
-    auto getOriginalIndex = [&](int selected) -> int {
-        if (selected >= 0 && selected < static_cast<int>(visiblePointIndices.size()))
-            return visiblePointIndices[selected];
-        return -1;
-    };
-
-    int selectedIdx1 = -1, selectedIdx2 = -1, selectedIdx3 = -1;
-    for (size_t i = 0; i < visiblePointIndices.size(); ++i) {
-        if (visiblePointIndices[i] == selectedPoint1) selectedIdx1 = static_cast<int>(i);
-        if (visiblePointIndices[i] == selectedPoint2) selectedIdx2 = static_cast<int>(i);
-        if (visiblePointIndices[i] == selectedPoint3) selectedIdx3 = static_cast<int>(i);
-    }
-
-    ImGui::Combo("Point 1", &selectedIdx1, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
-    ImGui::Combo("Point 2", &selectedIdx2, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
-    ImGui::Combo("Point 3", &selectedIdx3, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
-
-    selectedPoint1 = getOriginalIndex(selectedIdx1);
-    selectedPoint2 = getOriginalIndex(selectedIdx2);
-    selectedPoint3 = getOriginalIndex(selectedIdx3);
-
-    if (ImGui::Button("Add Plane")) {
-        if (selectedPoint1 != selectedPoint2 && selectedPoint1 != selectedPoint3 && selectedPoint2 != selectedPoint3) {
-            std::string name = planeName;
-            name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
-            name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
-
-            if (name.empty()) {
-                ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
-            } else if (std::any_of(m_sceneData.points.begin(), m_sceneData.points.end(),
-                [&](const SceneData::Point& p) { return p.name == name; })) {
-                ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
-            } else {
-                m_sceneData.planes.push_back({ planeName, selectedPoint1, selectedPoint2, selectedPoint3 });
-                planeName[0] = '\0';
-            }
-        }
-    }
-
-    ImGui::SameLine();
-    ImGui::Checkbox("Show Cuts*", &m_sceneData.settings.showCutPlanes);
-    ImGui::SameLine();
-    ImGui::Checkbox("Expand*", &m_sceneData.settings.expandPlanes);
-    m_renderer.SetCutPlaneVisible(m_sceneData.settings.showCutPlanes);
-    m_renderer.SetExpandedPlanes(m_sceneData.settings.expandPlanes);
-
     ImGui::DragFloat("Plane Opacity", &m_sceneData.settings.planeOpacity, 0.01f, 0.1f, 1.0f);
 
+    // tabs to creat point with coords or select existing points
+    if (ImGui::BeginTabBar("PlaneTabs")) {
+        if (ImGui::BeginTabItem("Select Points")) {
+            static int selectedPoint1 = -1;
+            static int selectedPoint2 = -1;
+            static int selectedPoint3 = -1;
+
+            // filtered list of visible points
+            std::vector<int> visiblePointIndices;
+            std::vector<const char*> visiblePointNames;
+            for (size_t i = 0; i < m_sceneData.points.size(); ++i) {
+                if (!m_sceneData.points[i].hidden) {
+                    visiblePointIndices.push_back(static_cast<int>(i));
+                    visiblePointNames.push_back(m_sceneData.points[i].name.c_str());
+                }
+            }
+
+            auto getOriginalIndex = [&](int selected) -> int {
+                if (selected >= 0 && selected < static_cast<int>(visiblePointIndices.size()))
+                    return visiblePointIndices[selected];
+                return -1;
+            };
+
+            int selectedIdx1 = -1, selectedIdx2 = -1, selectedIdx3 = -1;
+            for (size_t i = 0; i < visiblePointIndices.size(); ++i) {
+                if (visiblePointIndices[i] == selectedPoint1) selectedIdx1 = static_cast<int>(i);
+                if (visiblePointIndices[i] == selectedPoint2) selectedIdx2 = static_cast<int>(i);
+                if (visiblePointIndices[i] == selectedPoint3) selectedIdx3 = static_cast<int>(i);
+            }
+
+            ImGui::Combo("Point 1", &selectedIdx1, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+            ImGui::Combo("Point 2", &selectedIdx2, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+            ImGui::Combo("Point 3", &selectedIdx3, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+
+            selectedPoint1 = getOriginalIndex(selectedIdx1);
+            selectedPoint2 = getOriginalIndex(selectedIdx2);
+            selectedPoint3 = getOriginalIndex(selectedIdx3);
+
+            if (ImGui::Button("Add Plane")) {
+                if (selectedPoint1 != selectedPoint2 && selectedPoint1 != selectedPoint3 && selectedPoint2 != selectedPoint3) {
+                    std::string name = planeName;
+                    name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
+                    name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
+
+                    if (name.empty()) {
+                        ImGui::SameLine();
+                        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
+                    } else if (std::any_of(m_sceneData.points.begin(), m_sceneData.points.end(),
+                        [&](const SceneData::Point& p) { return p.name == name; })) {
+                        ImGui::SameLine();
+                        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
+                    } else {
+                        m_sceneData.planes.push_back({ planeName, selectedPoint1, selectedPoint2, selectedPoint3 });
+                        planeName[0] = '\0';
+                    }
+                }
+            }
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Add Coords")) {
+            static float planeCoords[3] = {0.0f, 0.0f, 0.0f};
+            ImGui::InputFloat3("Coords", planeCoords);
+
+            if (ImGui::Button("Add Plane")) {
+                std::string name = planeName;
+                name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
+                name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
+
+                if (name.empty()) {
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
+                } else if (std::any_of(m_sceneData.points.begin(), m_sceneData.points.end(),
+                    [&](const SceneData::Point& p) { return p.name == name; })) {
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
+                } else {
+                    // we add the 3 points
+                    m_sceneData.points.push_back({ name + "1", { planeCoords[0], 0.0f, 0.0f }, true });
+                    m_sceneData.points.push_back({ name + "2", { 0.0f, planeCoords[1], 0.0f }, true });
+                    m_sceneData.points.push_back({ name + "3", { 0.0f, 0.0f, planeCoords[2] }, true });
+
+                    m_sceneData.planes.push_back({ name, static_cast<int>(m_sceneData.points.size() - 3), 
+                                                    static_cast<int>(m_sceneData.points.size() - 2), 
+                                                    static_cast<int>(m_sceneData.points.size() - 1) });
+                    planeName[0] = '\0';
+                }
+            }
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+    
+    //ImGui::Checkbox("Show Cuts*", &m_sceneData.settings.showCutPlanes);
+    //m_renderer.SetCutPlaneVisible(m_sceneData.settings.showCutPlanes);
 
     ImGui::Separator();
 
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
-    if (ImGui::BeginTable("PlaneTable", 5, ImGuiTableFlags_NoHostExtendX                
+    if (ImGui::BeginTable("PlaneTable", 6, ImGuiTableFlags_NoHostExtendX                
                                         | ImGuiTableFlags_RowBg  
                                         | ImGuiTableFlags_Resizable )) {
         ImGui::TableSetupColumn("Name");
         ImGui::TableSetupColumn("Points");
         ImGui::TableSetupColumn("Hide Points");
+        ImGui::TableSetupColumn("Expand");
         ImGui::TableSetupColumn("Color");
         ImGui::TableSetupColumn("Delete");
         ImGui::TableHeadersRow();
@@ -573,13 +608,18 @@ void App::DrawPlanesTab() {
             }
 
             ImGui::TableSetColumnIndex(3);
+            if (ImGui::Checkbox("##Expand", &plane.expand)) {
+                m_sceneData.planes[i].expand = plane.expand; 
+            }
+
+            ImGui::TableSetColumnIndex(4);
             if (ImGui::ColorEdit4("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
                 plane.color[0] = color.x;
                 plane.color[1] = color.y;
                 plane.color[2] = color.z;
             }
 
-            ImGui::TableSetColumnIndex(4);
+            ImGui::TableSetColumnIndex(5);
             if (ImGui::Button("X")) {
                 m_sceneData.planes.erase(m_sceneData.planes.begin() + i);
                 DeletePoint(m_sceneData.points[plane.point1index]);
@@ -703,8 +743,6 @@ void App::DrawPresetWindow() {
     }
     
     if (ImGui::BeginPopupModal("Plane Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        // to make plane presets use less space, we will make the planes from coordinates
-
         ImGui::Text("Available Plane Presets:");
         ImGui::Separator();
         
@@ -723,30 +761,42 @@ void App::DrawPresetWindow() {
                     });
                     
                     m_sceneData.points.push_back({
-                        ("x_" + preset["name"].get<std::string>()).c_str(),
+                        ("A_" + preset["name"].get<std::string>()).c_str(),
                         {
-                            preset["coords"]["x"].get<float>(),
-                            -0.0f, 0.0f
+                            preset["point1"]["d"].get<float>(),
+                            preset["point1"]["a"].get<float>(),
+                            preset["point1"]["c"].get<float>()
                         },
-                        true
+                        true // hidden
                     });
                     m_sceneData.points.push_back({
-                        ("y_" + preset["name"].get<std::string>()).c_str(),
+                        ("B_" + preset["name"].get<std::string>()).c_str(),
                         {
-                            0.0f,
-                            preset["coords"]["y"].get<float>(),
-                            0.0f
-                        },
-                        true 
-                    });m_sceneData.points.push_back({
-                        ("z_" + preset["name"].get<std::string>()).c_str(),
-                        {
-                            0.0f,
-                            0.0f,
-                            preset["coords"]["z"].get<float>()
+                            preset["point2"]["d"].get<float>(),
+                            preset["point2"]["a"].get<float>(),
+                            preset["point2"]["c"].get<float>()
                         },
                         true 
                     });
+                    m_sceneData.points.push_back({
+                        ("C_" + preset["name"].get<std::string>()).c_str(),
+                        {
+                            preset["point3"]["d"].get<float>(),
+                            preset["point3"]["a"].get<float>(),
+                            preset["point3"]["c"].get<float>()
+                        },
+                        true 
+                    });
+
+                    m_sceneData.planes.back().expand = preset["expand"].get<bool>();
+
+                    // check if there is a specific color
+                    if (preset.contains("color")) {
+                        m_sceneData.planes.back().color[0] = preset["color"]["r"].get<float>();
+                        m_sceneData.planes.back().color[1] = preset["color"]["g"].get<float>();
+                        m_sceneData.planes.back().color[2] = preset["color"]["b"].get<float>();
+                    }
+
                     ImGui::CloseCurrentPopup();
                 }
             }
@@ -830,6 +880,7 @@ void App::DrawDihedralViewport() {
         drawList->AddLine(pos1, pos2, lineColor, 1.0f);
     }
     
+    // lines
     for (const auto& line : m_sceneData.lines) {
         const auto& p1 = m_sceneData.points[line.point1index];
         const auto& p2 = m_sceneData.points[line.point2index];
@@ -876,8 +927,7 @@ void App::DrawDihedralViewport() {
             }
         }
         
-        drawList->AddLine(edge1_r2, edge2_r2, 
-            IM_COL32(line.color[0] * 255, line.color[1] * 255, line.color[2] * 255, 255), 1.0f);
+        drawList->AddLine(edge1_r2, edge2_r2, lineColor, 1.0f);
 
         // r1 line (horizontal plane)
         ImVec2 p1_r1(cursorPos.x + viewportSize.x / 2 + x1 * 10, (cursorPos.y + viewportSize.y / 2) - y2 * 10);
@@ -913,14 +963,71 @@ void App::DrawDihedralViewport() {
             }
         }
         
-        drawList->AddLine(edge1_r1, edge2_r1, 
-            IM_COL32(line.color[0] * 255, line.color[1] * 255, line.color[2] * 255, 255), 1.0f);
+        drawList->AddLine(edge1_r1, edge2_r1, lineColor, 1.0f);
 
         // draw labels
-        ImGui::SetCursorScreenPos(ImVec2((edge1_r1.x + edge2_r1.x) / 2 - 20, (edge1_r1.y + edge2_r1.y) / 2 - 20));
-        ImGui::Text("%c1", line.name[0]);
-        ImGui::SetCursorScreenPos(ImVec2((edge1_r2.x + edge2_r2.x) / 2 + 10, (edge1_r2.y + edge2_r2.y) / 2 - 20));
-        ImGui::Text("%c2", line.name[0]);
+        ImGui::SetCursorScreenPos(ImVec2((edge1_r1.x + edge2_r1.x) / 2 - 15, (edge1_r1.y + edge2_r1.y) / 2 - 20));
+        ImGui::TextColored(lineColor, "%c1", line.name[0]);
+        ImGui::SetCursorScreenPos(ImVec2((edge1_r2.x + edge2_r2.x) / 2 + 15, (edge1_r2.y + edge2_r2.y) / 2 - 20));
+        ImGui::TextColored(lineColor, "%c2", line.name[0]);
+    }
+    
+    // TODO: fix planes, not really working as suposed to
+    // Planes can only be drawn on x+ y+ plane
+    // TODO: extend the planes to the edges of the viewport like the lines
+    for (const auto& plane : m_sceneData.planes) {
+        const auto& p1 = m_sceneData.points[plane.point1index];
+        const auto& p2 = m_sceneData.points[plane.point2index];
+        const auto& p3 = m_sceneData.points[plane.point3index];
+
+        // Calculate plane equation: Ax + By + Cz + D = 0
+        glm::vec3 v1(p2.coords[0] - p1.coords[0], p2.coords[1] - p1.coords[1], p2.coords[2] - p1.coords[2]);
+        glm::vec3 v2(p3.coords[0] - p1.coords[0], p3.coords[1] - p1.coords[1], p3.coords[2] - p1.coords[2]);
+        glm::vec3 normal = glm::cross(v1, v2);
+        
+        float A = normal.x;
+        float B = normal.y;
+        float C = normal.z;
+        float D = -(A * p1.coords[0] + B * p1.coords[1] + C * p1.coords[2]);
+        
+        // First vertical point (set x = 0)
+        float z1_vert = (-D) / C;
+        glm::vec3 vert_point1(0.0f, 0.0f, z1_vert / 3);
+        
+        // Second vertical point (set z = 0)
+        float x1_vert = (-D) / A;
+        glm::vec3 vert_point2(x1_vert / 2, 0.0f, 0.0f);
+
+        // First horizontal point (set x = 0)
+        float y1_horiz = (-D) / B;
+        glm::vec3 horiz_point1(0.0f, -y1_horiz / 3, 0.0f);
+        
+        // Second horizontal point (set y = 0)
+        float x2_horiz = (-D) / A;
+        glm::vec3 horiz_point2(x2_horiz / 2, 0.0f, 0.0f);
+
+        ImVec2 p1_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point1.x * 10,
+                        (cursorPos.y + viewportSize.y / 2) - horiz_point1.y * 10);
+        
+        ImVec2 p2_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point2.x * 10,
+                        (cursorPos.y + viewportSize.y / 2) + horiz_point2.y * 10);
+        
+        // r2 line (vertical plane)
+        ImVec2 p1_vert(cursorPos.x + viewportSize.x / 2 + vert_point1.x * 10,
+                        (cursorPos.y + viewportSize.y / 2) - vert_point1.z * 10);
+        
+        ImVec2 p2_vert(cursorPos.x + viewportSize.x / 2 + vert_point2.x * 10,
+                        (cursorPos.y + viewportSize.y / 2) - vert_point2.z * 10);
+
+        // Draw the plane lines
+        drawList->AddLine(p1_horiz, p2_horiz, lineColor, 2.5f);
+        drawList->AddLine(p1_vert, p2_vert, lineColor, 2.5f);
+        
+        // add labels
+        ImGui::SetCursorScreenPos(ImVec2((p1_horiz.x + p2_horiz.x) / 2 - 15, (p1_horiz.y + p2_horiz.y) / 2 - 20));
+        ImGui::TextColored(lineColor, "%c1", plane.name[0]);
+        ImGui::SetCursorScreenPos(ImVec2((p1_vert.x + p2_vert.x) / 2 + 15, (p1_vert.y + p2_vert.y) / 2 - 20));
+        ImGui::TextColored(lineColor, "%c2", plane.name[0]);
     }
 
     ImGui::End();
