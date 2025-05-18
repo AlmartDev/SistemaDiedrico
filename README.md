@@ -1,33 +1,63 @@
 # Sistema Diedrico (Dihedral System)
-The dihedral system is a drawing method that allows three-dimensional objects to be represented on a plane. It is based on projecting the object onto two mutually perpendicular planes.
 
-I'm currently studing this and I find it quite challenging when I'm not focused enough to try and comprehend where/how these drawings whould actually be in 3D. So I tried to find a program that would to this for me: I couldn't find it, so I decided to make my own.
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Web Version](https://img.shields.io/badge/Live%20Demo-Available-green)](https://almartdev.github.io/SistemaDiedrico)
 
-This program allows you to represent points, lines and planes on both a 3D space and a dihedral system representation.
-Some UI text is writen in Spanish* (sorry)
+A 3D visualization tool for dihedral system projections, helping understand spatial geometry through interactive representations.
 
-Dihedral System: https://youtu.be/H5uxDwpfXNs
+### Want to check out the web version?
+Development web build: https://almartdev.github.io/SistemaDiedrico/
 
-# Compiling
-Requirements:
-- Cmake (3.14 at least)
-- Python3 (Glad needs it)
-- Any C++ 17 compiler
+## About
 
-Linux.
-```sh
-git clone https://github.com/almartdev/sistemadiedrico.git # clone this repo to your computer
-cd sistemadiedrico && mkdir build && cd build # makes a folder for the build files
-# (you might need it): sudo apt install zlibstatic 
+The dihedral system is a drawing method that represents three-dimensional objects on a plane using two mutually perpendicular projection planes. 
+
+As a student struggling with spatial visualization, I couldn't find adequate software to help me understand these projections - so I built my own! This tool provides:
+
+- Interactive 3D visualization
+- Simultaneous dihedral projections (horizontal and vertical planes)
+- Support for points, lines, and planes (for now)
+- Web and desktop versions
+
+▶ **How does dihedral look like?** [YouTube](https://youtu.be/H5uxDwpfXNs)
+
+## Features
+
+- **3D Viewport**: Rotate, zoom, and pan the 3D representation
+- **Dihedral Projections**: Automatic orthogonal projections
+- **Object Creation**: Add points, lines, and planes with intuitive controls
+- **Cross-Platform**: Runs natively and in web browsers
+
+## Installation
+
+### Requirements
+- CMake ≥ 3.14
+- C++17 compatible compiler
+- Python 3 (for GLAD)
+
+### Linux/macOS
+```bash
+git clone https://github.com/almartdev/sistemadiedrico.git
+cd sistemadiedrico
+mkdir build && cd build
 cmake ..
 make
+# Run with: ./diedrico
 ```
 
-Windows.
-Consider using Visual Studio and cmake's UI.
+### Windows
+Consider using CMake GUI and Visual Studio.
 
-### TODO: Web build
-I want to make this project accesible to anyone so I've tried to add Emscripten support. It doesn't work at the moment (help me)
+### Web Build
+```bash
+# On project root
+.\web_build.bat # UPDATE YOUR USERNAME ON THIS FILE
+cd .\build_web\
+ninja
 
-# License
+# Simple server to test your build
+python -m http.server 8000
+```
+
+### License
 Please see "LICENSE" for more information!
