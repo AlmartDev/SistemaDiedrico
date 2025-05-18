@@ -29,11 +29,11 @@ struct SceneData {
     };
 
     struct Settings {
-        float backgroundColor[3] = {0.0f, 0.0f, 0.0f};
+        float backgroundColor[3] = {0.275f, 0.33f, 0.40f};
         float dihedralBackgroundColor[3] = {0.1f, 0.1f, 0.1f};
         float dihedralLineColor[3] = {1.0f, 1.0f, 1.0f};
 
-        int axesType = 1; // default to cartesian axes
+        int axesType = 2; 
 
         bool showDihedralSystem = true;
 

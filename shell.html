@@ -28,6 +28,13 @@
         }
     };
     </script>
+    document.getElementById('canvas').addEventListener('contextmenu', function(e) {
+    if (e.button === 2) { // Right mouse button
+        e.preventDefault();
+        return false;
+    }
+    });
+    </script>
     {{{ SCRIPT }}}
 </body>
 </html>

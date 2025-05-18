@@ -200,7 +200,7 @@ void App::DrawMenuBar() {
         }
         
         if (ImGui::BeginMenu("About")) {
-            ImGui::Text("Version 0.6");
+            ImGui::Text("Version 0.6.1");
             ImGui::Text("Made by Alonso Martínez");
             ImGui::Text("@almartdev on GitHub");
             ImGui::EndMenu();
@@ -219,7 +219,7 @@ void App::DrawMenuBar() {
             ImGui::Text("Welcome to the Dihedral System App!");
             ImGui::Text("IMPORTANT: This app is still in development.");
             ImGui::Separator();
-            ImGui::Text("Version 0.6 - WEB");
+            ImGui::Text("Version 0.6.1 - WEB");
             ImGui::Text("Made by Alonso Martínez");
             ImGui::Text("@almartdev on GitHub");
         }
@@ -372,8 +372,6 @@ void App::DrawPointsTab() {
 }
 
 void App::DrawLinesTab() {
-    ImGui::Text("Select two points to create a line");
-
     static char lineName[128] = "";
     ImGui::InputText("Name", lineName, sizeof(lineName));
 
@@ -1009,9 +1007,6 @@ void App::DrawDihedralViewport() {
         ImGui::TextColored(lineColor, "%c2", line.name[0]);
     }
     
-    // TODO: fix planes, not really working as suposed to
-    // Planes can only be drawn on x+ y+ plane
-    // TODO: extend the planes to the edges of the viewport like the lines
     for (const auto& plane : m_sceneData.planes) {
         const auto& p1 = m_sceneData.points[plane.point1index];
         const auto& p2 = m_sceneData.points[plane.point2index];
@@ -1030,7 +1025,7 @@ void App::DrawDihedralViewport() {
         // First vertical point (set x = 0)
         float z1_vert = (-D) / C;
         glm::vec3 vert_point1(0.0f, 0.0f, z1_vert / 3);
-        
+
         // Second vertical point (set z = 0)
         float x1_vert = (-D) / A;
         glm::vec3 vert_point2(x1_vert / 2, 0.0f, 0.0f);
@@ -1038,23 +1033,61 @@ void App::DrawDihedralViewport() {
         // First horizontal point (set x = 0)
         float y1_horiz = (-D) / B;
         glm::vec3 horiz_point1(0.0f, -y1_horiz / 3, 0.0f);
-        
+
         // Second horizontal point (set y = 0)
         float x2_horiz = (-D) / A;
         glm::vec3 horiz_point2(x2_horiz / 2, 0.0f, 0.0f);
 
-        ImVec2 p1_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point1.x * 10,
-                        (cursorPos.y + viewportSize.y / 2) - horiz_point1.y * 10);
-        
-        ImVec2 p2_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point2.x * 10,
-                        (cursorPos.y + viewportSize.y / 2) + horiz_point2.y * 10);
-        
-        // r2 line (vertical plane)
+        // Calculate the two points for the vertical line in 2D projection
         ImVec2 p1_vert(cursorPos.x + viewportSize.x / 2 + vert_point1.x * 10,
-                        (cursorPos.y + viewportSize.y / 2) - vert_point1.z * 10);
-        
+                   (cursorPos.y + viewportSize.y / 2) - vert_point1.z * 10);
         ImVec2 p2_vert(cursorPos.x + viewportSize.x / 2 + vert_point2.x * 10,
-                        (cursorPos.y + viewportSize.y / 2) - vert_point2.z * 10);
+                   (cursorPos.y + viewportSize.y / 2) - vert_point2.z * 10);
+
+        // Calculate the two points for the horizontal line in 2D projection
+        ImVec2 p1_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point1.x * 10,
+                (cursorPos.y + viewportSize.y / 2) - horiz_point1.y * 10);
+        ImVec2 p2_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point2.x * 10,
+                (cursorPos.y + viewportSize.y / 2) + horiz_point2.y * 10);
+
+        // Extend the vertical line to the window borders (top and bottom)
+        ImVec2 vert_dir = ImVec2(p2_vert.x - p1_vert.x, p2_vert.y - p1_vert.y);
+        if (fabs(vert_dir.x) < 1e-5) { // vertical line
+            p1_vert = ImVec2(p1_vert.x, cursorPos.y);
+            p2_vert = ImVec2(p1_vert.x, cursorPos.y + viewportSize.y);
+        } else {
+            float m = vert_dir.y / vert_dir.x;
+            float b = p1_vert.y - m * p1_vert.x;
+            // Intersect with top and bottom borders
+            float x_top = (cursorPos.y - b) / m;
+            float x_bottom = (cursorPos.y + viewportSize.y - b) / m;
+            p1_vert = ImVec2(x_top, cursorPos.y);
+        }
+
+        // Extend the horizontal line to the window borders (left and right)
+        ImVec2 horiz_dir = ImVec2(p2_horiz.x - p1_horiz.x, p2_horiz.y - p1_horiz.y);
+        if (fabs(horiz_dir.y) < 1e-5) { // horizontal line
+            p1_horiz = ImVec2(cursorPos.x, p1_horiz.y);
+            p2_horiz = ImVec2(cursorPos.x + viewportSize.x, p1_horiz.y);
+        } else {
+            float m = horiz_dir.y / horiz_dir.x;
+            float b = p1_horiz.y - m * p1_horiz.x;
+            // Intersect with left and right borders
+            float y_left = m * cursorPos.x + b;
+            float y_right = m * (cursorPos.x + viewportSize.x) + b;
+            p1_horiz = ImVec2(cursorPos.x, y_left);
+        }
+
+        // handle vertical lines (x1 == x2)
+        if (abs(p2_vert.x - p1_vert.x) < 0.0001f) {
+            p1_vert = ImVec2(p1_vert.x, cursorPos.y);
+            p2_vert = ImVec2(p1_vert.x, cursorPos.y + viewportSize.y);
+        }
+        // handle horizontal lines (y1 == y2)
+        else if (abs(p2_horiz.y - p1_horiz.y) < 0.0001f) {
+            p1_horiz = ImVec2(cursorPos.x, p1_horiz.y);
+            p2_horiz = ImVec2(cursorPos.x + viewportSize.x, p1_horiz.y);
+        }
 
         // Draw the plane lines
         drawList->AddLine(p1_horiz, p2_horiz, lineColor, 2.5f);
