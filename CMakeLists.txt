@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 project(diedrico 
     LANGUAGES CXX
     VERSION 1.0.0
-    DESCRIPTION "3D Geometry Application"
 )
 
 #-------------------------------------------------------------------------------
@@ -54,35 +53,28 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     FOLDER ${PROJECT_NAME}
 )
 
-# Copy assets folder to executable directory
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_SOURCE_DIR}/assets
-    $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets
-    COMMENT "Copying assets folder to executable directory"
-)
-
+# Handle assets differently for web vs native builds
 if(BUILD_WEB)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
     
-    target_compile_options(${PROJECT_NAME} PRIVATE
-        "-sUSE_WEBGL2=1"
-        "-sMIN_WEBGL_VERSION=2"
-        "-sMAX_WEBGL_VERSION=2"
-        "-sFULL_ES3=1"
-        "-sGL_POOL_TEMP_BUFFERS=0"
-    )
-    
+    # Embed assets directory for Emscripten
+    get_filename_component(ABSOLUTE_ASSETS_PATH "${CMAKE_SOURCE_DIR}/assets" ABSOLUTE)
     target_link_options(${PROJECT_NAME} PRIVATE
         "SHELL:--shell-file ${CMAKE_SOURCE_DIR}/shell.html"
         "SHELL:-sWASM=1"
-        "SHELL:-sUSE_WEBGL2=1"
         "SHELL:-sMIN_WEBGL_VERSION=2"
         "SHELL:-sMAX_WEBGL_VERSION=2"
-        "SHELL:-sFULL_ES3=1"
-        "SHELL:-sGL_POOL_TEMP_BUFFERS=0"
         "SHELL:-sASSERTIONS=1"
         "SHELL:-sGL_DEBUG=1"
+        "SHELL:--preload-file ${ABSOLUTE_ASSETS_PATH}@/assets"
+    )
+else()
+    # Copy assets folder to executable directory for native builds
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets
+        COMMENT "Copying assets folder to executable directory"
     )
 endif()
 

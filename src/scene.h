@@ -49,6 +49,8 @@ struct SceneData {
         float pointSize = 8.0f;
         float lineThickness = 3.0f;
         float planeOpacity = 0.6f;
+
+        bool showWelcomeWindow = true;
     };
 
     std::vector<Point> points;

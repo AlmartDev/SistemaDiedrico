@@ -8,13 +8,13 @@
 
 #include "scene.h"
 
+#ifdef __EMSCRIPTEN__ 
+#include <emscripten.h>
+#endif
+
 double App::m_scrollY = 0.0;
 
-#ifndef __EMSCRIPTEN__
-    App::App() : m_window(nullptr), m_jsonHandler("./assets/presets.json") {}
-#else
-    App::App() : m_window(nullptr), m_jsonHandler(nullptr) {}
-#endif
+App::App() : m_window(nullptr), m_jsonHandler("./assets/presets.json") {}
 
 bool App::Initialize() {
     if (!glfwInit()) {
@@ -51,9 +51,6 @@ bool App::Initialize() {
     }
 #endif
 
-    printf("GLFW initialized: %d\n", glfwInit());
-    printf("Window created: %p\n", m_window);
-
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -80,11 +77,15 @@ void App::SetupImGui() {
 
     ImGuiIO& io = ImGui::GetIO();
     
-#ifndef __EMSCRIPTEN__
-    m_font = io.Fonts->AddFontFromFileTTF("./assets/Roboto-Regular.ttf", m_sceneData.settings.fontSize);
-    // load imgui.ini
-    ImGui::GetIO().IniFilename = "./assets/imgui.ini";
+#ifdef __EMSCRIPTEN__
+    const char* fontPath = "/assets/Roboto-Regular.ttf"; 
+    const char* initPath = "/assets/imgui.ini";
+#else
+    const char* fontPath = "./assets/Roboto-Regular.ttf"; 
+    const char* initPath = "./assets/imgui.ini";
 #endif
+    m_font = io.Fonts->AddFontFromFileTTF(fontPath, m_sceneData.settings.fontSize);
+    ImGui::GetIO().IniFilename = initPath;
 
     // Initialize ImGui backends
     ImGui_ImplGlfw_InitForOpenGL(m_window, true);
@@ -182,6 +183,7 @@ void App::DrawUI() {
 }
 
 void App::DrawMenuBar() {
+#ifndef __EMSCRIPTEN__
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             ImGui::MenuItem("Save*", nullptr, false);
@@ -198,7 +200,7 @@ void App::DrawMenuBar() {
         }
         
         if (ImGui::BeginMenu("About")) {
-            ImGui::Text("Version 0.5");
+            ImGui::Text("Version 0.6");
             ImGui::Text("Made by Alonso Martínez");
             ImGui::Text("@almartdev on GitHub");
             ImGui::EndMenu();
@@ -206,6 +208,25 @@ void App::DrawMenuBar() {
         
         ImGui::EndMainMenuBar();
     }
+#else
+    if (m_sceneData.settings.showWelcomeWindow) {
+        // it has to be exacly in the middle of the screen
+        ImGui::SetNextWindowPos(ImVec2(m_windowWidth / 2 - 150, m_windowHeight / 2 - 75), ImGuiCond_Always);
+        
+        if (ImGui::Begin("Welcome", &m_sceneData.settings.showWelcomeWindow, ImGuiWindowFlags_NoMove 
+            | ImGuiWindowFlags_AlwaysAutoResize
+            | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize)) {
+            ImGui::Text("Welcome to the Dihedral System App!");
+            ImGui::Text("IMPORTANT: This app is still in development.");
+            ImGui::Separator();
+            ImGui::Text("Version 0.6 - WEB");
+            ImGui::Text("Made by Alonso Martínez");
+            ImGui::Text("@almartdev on GitHub");
+        }
+        ImGui::End();
+    }
+#endif
+
 }
 
 void App::DrawSettingsWindow() {
@@ -420,11 +441,11 @@ void App::DrawLinesTab() {
 
     // Draw line list with better styling
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
-    if (ImGui::BeginTable("LineTable", 4, ImGuiTableFlags_NoHostExtendX                
+    if (ImGui::BeginTable("LineTable", 3, ImGuiTableFlags_NoHostExtendX                
                                         | ImGuiTableFlags_RowBg  
                                         | ImGuiTableFlags_Resizable )) {
         ImGui::TableSetupColumn("Name");
-        ImGui::TableSetupColumn("Points");
+        //ImGui::TableSetupColumn("Points");
         ImGui::TableSetupColumn("Color");
         ImGui::TableSetupColumn("Delete");
         ImGui::TableHeadersRow();
@@ -440,10 +461,11 @@ void App::DrawLinesTab() {
             ImGui::TableSetColumnIndex(0);
             ImGui::Text("%s (%c)", line.name.c_str(), line.name.empty() ? '?' : line.name[0]);
 
-            ImGui::TableSetColumnIndex(1);
+            /*ImGui::TableSetColumnIndex(1);
             ImGui::Text("%s --> %s",
                 m_sceneData.points[line.point1index].name.c_str(),
                 m_sceneData.points[line.point2index].name.c_str());
+            */
 
             /*ImGui::TableSetColumnIndex(2);
             bool pointsHidden = m_sceneData.points[line.point1index].hidden && m_sceneData.settings.showCutPoints;
@@ -452,14 +474,14 @@ void App::DrawLinesTab() {
                 m_sceneData.points[line.point2index].hidden = pointsHidden;
             }*/
 
-            ImGui::TableSetColumnIndex(2);
+            ImGui::TableSetColumnIndex(1);
             if (ImGui::ColorEdit4("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
                 line.color[0] = color.x;
                 line.color[1] = color.y;
                 line.color[2] = color.z;
             }
 
-            ImGui::TableSetColumnIndex(3);
+            ImGui::TableSetColumnIndex(2);
             if (ImGui::Button("X")) {
                 m_sceneData.lines.erase(m_sceneData.lines.begin() + i);
                 DeletePoint(m_sceneData.points[line.point1index]);
@@ -581,11 +603,11 @@ void App::DrawPlanesTab() {
     ImGui::Separator();
 
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
-    if (ImGui::BeginTable("PlaneTable", 6, ImGuiTableFlags_NoHostExtendX                
+    if (ImGui::BeginTable("PlaneTable", 5, ImGuiTableFlags_NoHostExtendX                
                                         | ImGuiTableFlags_RowBg  
                                         | ImGuiTableFlags_Resizable )) {
         ImGui::TableSetupColumn("Name");
-        ImGui::TableSetupColumn("Points");
+        //ImGui::TableSetupColumn("Points");
         ImGui::TableSetupColumn("Hide Points");
         ImGui::TableSetupColumn("Expand");
         ImGui::TableSetupColumn("Color");
@@ -601,13 +623,13 @@ void App::DrawPlanesTab() {
             ImGui::TableSetColumnIndex(0);
             ImGui::Text("%s (%c)", plane.name.c_str(), plane.name.empty() ? '?' : plane.name[0]);
 
-            ImGui::TableSetColumnIndex(1);
+            /*ImGui::TableSetColumnIndex(1);
             ImGui::Text("%s, %s, %s",
                 m_sceneData.points[plane.point1index].name.c_str(),
                 m_sceneData.points[plane.point2index].name.c_str(),
-                m_sceneData.points[plane.point3index].name.c_str());
+                m_sceneData.points[plane.point3index].name.c_str());*/
 
-            ImGui::TableSetColumnIndex(2);
+            ImGui::TableSetColumnIndex(1);
             bool pointsHidden = m_sceneData.points[plane.point1index].hidden && 
                                 m_sceneData.points[plane.point2index].hidden && 
                                 m_sceneData.points[plane.point3index].hidden && 
@@ -619,19 +641,19 @@ void App::DrawPlanesTab() {
                 m_sceneData.points[plane.point3index].hidden = pointsHidden;
             }
 
-            ImGui::TableSetColumnIndex(3);
+            ImGui::TableSetColumnIndex(2);
             if (ImGui::Checkbox("##Expand", &plane.expand)) {
                 m_sceneData.planes[i].expand = plane.expand; 
             }
 
-            ImGui::TableSetColumnIndex(4);
+            ImGui::TableSetColumnIndex(3);
             if (ImGui::ColorEdit4("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
                 plane.color[0] = color.x;
                 plane.color[1] = color.y;
                 plane.color[2] = color.z;
             }
 
-            ImGui::TableSetColumnIndex(5);
+            ImGui::TableSetColumnIndex(4);
             if (ImGui::Button("X")) {
                 m_sceneData.planes.erase(m_sceneData.planes.begin() + i);
                 DeletePoint(m_sceneData.points[plane.point1index]);
@@ -664,6 +686,7 @@ void App::DrawPresetWindow() {
         ImGui::OpenPopup("Points Presets");
     }
     
+    ImGui::SetNextWindowPos(ImVec2(m_windowWidth / 2 - 150, m_windowHeight / 2 - 75), ImGuiCond_Always);
     if (ImGui::BeginPopupModal("Points Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Available Point Presets:");
         ImGui::Separator();
@@ -701,6 +724,7 @@ void App::DrawPresetWindow() {
         ImGui::OpenPopup("Lines Presets");
     }
     
+    ImGui::SetNextWindowPos(ImVec2(m_windowWidth / 2 - 150, m_windowHeight / 2 - 75), ImGuiCond_Always);
     if (ImGui::BeginPopupModal("Lines Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Available Line Presets:");
         ImGui::Separator();
@@ -750,6 +774,7 @@ void App::DrawPresetWindow() {
 
     ImGui::SameLine();
 
+    ImGui::SetNextWindowPos(ImVec2(m_windowWidth / 2 - 150, m_windowHeight / 2 - 75), ImGuiCond_Always);
     if (ImGui::Button("Planes")) {
         ImGui::OpenPopup("Plane Presets");
     }
@@ -1053,11 +1078,31 @@ void App::Run() {
     }
 }
 
-void App::Frame(){
+void App::Frame() {
     glfwPollEvents();
         
+    // Get the display size first (this is crucial for Emscripten)
+#ifdef __EMSCRIPTEN__
+    // Get the actual canvas size from JavaScript
+    int displayWidth = EM_ASM_INT({
+        return Math.floor(Module.canvas.clientWidth * (window.devicePixelRatio || 1));
+    });
+    int displayHeight = EM_ASM_INT({
+        return Math.floor(Module.canvas.clientHeight * (window.devicePixelRatio || 1));
+    });
+    
+    // Update GLFW's window size to match the canvas
+    glfwSetWindowSize(m_window, displayWidth, displayHeight);
+    
+    // Update ImGui's display size
+    ImGuiIO& io = ImGui::GetIO();
+    io.DisplaySize = ImVec2((float)displayWidth, (float)displayHeight);
+    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+#else
+    // Native version
     glfwGetWindowSize(m_window, &m_windowWidth, &m_windowHeight);
-        
+#endif
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -1069,19 +1114,25 @@ void App::Frame(){
         m_sceneData.settings.backgroundColor[1], 
         m_sceneData.settings.backgroundColor[2], 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-    int viewportWidth = m_windowWidth;
-    int viewportHeight = m_windowHeight;
-    int viewportX = (m_windowWidth - viewportWidth) / 2;
-    int viewportY = (m_windowHeight - viewportHeight) / 2;
-        
-    glViewport(viewportX, viewportY, viewportWidth, viewportHeight);
+    
+#ifdef __EMSCRIPTEN__
+    // Get the framebuffer size (should match display size)
+    int width, height;
+    glfwGetFramebufferSize(m_window, &width, &height);
+    glViewport(0, 0, width, height);
+    m_renderer.UpdateCamera(m_camera, width, height);
+#else
+    // Native version
+    int width, height;
+    glfwGetFramebufferSize(m_window, &width, &height);
+    glViewport(0, 0, width, height);
+    m_renderer.UpdateCamera(m_camera, width, height);
+#endif
 
     DrawUI();
 
     m_renderer.Render();
     PrepareRenderData();
-    m_renderer.UpdateCamera(m_camera, viewportWidth, viewportHeight);
         
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
