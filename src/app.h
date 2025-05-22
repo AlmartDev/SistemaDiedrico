@@ -1,6 +1,13 @@
+// app.h
+#pragma once
+
 #include "renderer.h"
 #include "camera.h"
 #include "json.h"
+#include "scene.h"
+
+// Forward declaration instead of including ui.h
+class UI;
 
 #ifdef __EMSCRIPTEN__
     #include <GLES3/gl3.h>
@@ -10,54 +17,42 @@
     #include <GLFW/glfw3.h>
 #endif
 
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
-
-#include "scene.h"
-
 class App {
 public:
     App();
-    ~App() = default;
+    //~App();
 
     bool Initialize();
     void Run();
-    void Frame(); // added for web support
+    void Frame();
     void Shutdown();
 
     GLFWwindow* GetWindow() const { return m_window; }
-
-private:
-    void DrawDihedralViewport();
+    SceneData& GetSceneData() { return m_sceneData; }
+    Camera& GetCamera() { return m_camera; }
+    Renderer& GetRenderer() { return m_renderer; }
 
     void HandleInput();
     void PrepareRenderData();
-    
-    void SetupImGui();
-    void DrawUI();
 
-    // UI Drawing functions
-    void DrawMenuBar();
-    void DrawSettingsWindow();
-    
-    void DrawPresetWindow();
-    
-    void DrawTabsWindow();
-    void DrawPointsTab();
-    void DrawLinesTab();
-    void DrawPlanesTab();
+    int GetWindowWidth() const { return m_windowWidth; }
+    int GetWindowHeight() const { return m_windowHeight; }
 
+    JsonHandler& GetJsonHandler() { return m_jsonHandler; }
+    
+    static double m_scrollY;
+    
     void DeletePoint(SceneData::Point& point);
-    
+private:
+    // ui class
+    UI* m_ui;
+
     GLFWwindow* m_window;
     Renderer m_renderer;
     Camera m_camera;
     JsonHandler m_jsonHandler;
-    ImFont* m_font;
 
     SceneData m_sceneData;
-    static double m_scrollY;
 
     const int DEFAULT_WIDTH = 1440;
     const int DEFAULT_HEIGHT = 1080;

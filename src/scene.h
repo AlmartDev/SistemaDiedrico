@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef SCENE_H
 #define SCENE_H
 
@@ -29,9 +31,9 @@ struct SceneData {
     };
 
     struct Settings {
-        float backgroundColor[3] = {0.275f, 0.33f, 0.40f};
-        float dihedralBackgroundColor[3] = {0.1f, 0.1f, 0.1f};
-        float dihedralLineColor[3] = {1.0f, 1.0f, 1.0f};
+        float backgroundColor[3] = {0.13f, 0.13f, 0.13f};
+        float dihedralBackgroundColor[3] = {1.0f, 1.0f, 1.0f};
+        float dihedralLineColor[3] = {0.1f, 0.1f, 0.1f};
 
         int axesType = 2; 
 
@@ -49,6 +51,9 @@ struct SceneData {
         float pointSize = 8.0f;
         float lineThickness = 3.0f;
         float planeOpacity = 0.6f;
+
+        // offsetXY
+        float offset[2] = {0.0f, 0.0f};
 
         bool showWelcomeWindow = true;
     };

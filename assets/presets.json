@@ -37,6 +37,24 @@
                     "a": 25,
                     "c": -40
                 }
+            },
+            {
+                "name": "E",
+                "description": "Punto en el 1er Bisector",
+                "coords": {
+                    "d": 0,
+                    "a": 38,
+                    "c": 38
+                }
+            },
+            {
+                "name": "F",
+                "description": "Punto en el 2do Bisector",
+                "coords": {
+                    "d": 0,
+                    "a": -22,
+                    "c": 22
+                }
             }
         ],
         "lines": 
