@@ -60,4 +60,4 @@ python -m http.server 8000
 ```
 
 ### License
-Please see "LICENSE" for more information!
+Under revision
