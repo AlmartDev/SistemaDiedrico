@@ -576,7 +576,8 @@ void UI::DrawPresetWindow(App& app) {
     auto& jsonHandler = app.GetJsonHandler();
     bool m_jsonLoaded = jsonHandler.LoadJson();
 
-    ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 250, 450), ImGuiCond_Always);
+    // big mistake
+    //ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 250, 450), ImGuiWindowFLags_);
     ImGui::Begin("Presets", nullptr);
     ImGui::Text("Select a preset to load");
 
@@ -765,8 +766,8 @@ void UI::DrawDihedralViewport(App& app) {
         sceneData.settings.dihedralBackgroundColor[2], 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
         
-    // set this window to start at the top right corner
-    ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 550, 50), ImGuiCond_Always);
+    // big mistake again
+    //ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 550, 50), ImGuiCond_Always);
     ImGui::Begin("Dihedral Projection", nullptr, 
                 ImGuiWindowFlags_NoCollapse | 
                 ImGuiWindowFlags_NoScrollbar |
