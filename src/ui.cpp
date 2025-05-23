@@ -132,6 +132,8 @@ void UI::DrawSettingsWindow(App& app) {
 
     ImGui::InputFloat2("Offset (X, Y)", sceneData.settings.offset);
 
+    ImGui::Checkbox("Enable VSync", &sceneData.settings.VSync);
+
     /*ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)", 
                 camera.GetPosition().x, 
                 camera.GetPosition().y, 
@@ -570,6 +572,7 @@ void UI::DrawPresetWindow(App& app) {
     auto& jsonHandler = app.GetJsonHandler();
     bool m_jsonLoaded = jsonHandler.LoadJson();
 
+    ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 250, 450), ImGuiCond_Always);
     ImGui::Begin("Presets", nullptr);
     ImGui::Text("Select a preset to load");
 
@@ -758,6 +761,8 @@ void UI::DrawDihedralViewport(App& app) {
         sceneData.settings.dihedralBackgroundColor[2], 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
         
+    // set this window to start at the top right corner
+    ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 550, 50), ImGuiCond_Always);
     ImGui::Begin("Dihedral Projection", nullptr, 
                 ImGuiWindowFlags_NoCollapse | 
                 ImGuiWindowFlags_NoScrollbar |
@@ -775,16 +780,16 @@ void UI::DrawDihedralViewport(App& app) {
     // Ground line (L.T.)
     ImVec2 p0 = ImVec2(cursorPos.x, cursorPos.y + viewportSize.y / 2);
     ImVec2 p1 = ImVec2(cursorPos.x + viewportSize.x, cursorPos.y + viewportSize.y / 2);
-    drawList->AddLine(p0, p1, lineColor, 2.0f); 
+    drawList->AddLine(p0, p1, lineColor, 2.5f); 
 
     // Small indicator lines
     drawList->AddLine(ImVec2(p0.x + 4, p0.y + 5), ImVec2(p0.x + 25, p0.y + 5), lineColor, 2.0f);
     drawList->AddLine(ImVec2(p1.x - 4, p1.y + 5), ImVec2(p1.x - 25, p1.y + 5), lineColor, 2.0f);
 
     // Origin point
-    ImVec2 p2 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 - 5);
-    ImVec2 p3 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 + 5);
-    drawList->AddLine(p2, p3, lineColor, 2.0f);
+    ImVec2 p2 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 - 8);
+    ImVec2 p3 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 + 8);
+    drawList->AddLine(p2, p3, lineColor, 2.5f);
     
     // Draw points in 2D projection
     for (const auto& point : sceneData.points) {
@@ -814,8 +819,10 @@ void UI::DrawDihedralViewport(App& app) {
             ImGui::TextColored(ImVec4(point.color[0], point.color[1], point.color[2], 1.0f), "%c2", point.name[0]);
         }
 
-        // Draw projection lines
-        drawList->AddLine(pos1, pos2, lineColor, 1.0f);
+        ImVec2 ltPos(cursorPos.x + viewportSize.x / 2 + x * 10, cursorPos.y + viewportSize.y / 2);
+
+        drawList->AddLine(pos1, ltPos, lineColor, .75f);
+        drawList->AddLine(pos2, ltPos, lineColor, .75f);
     }
     
     // lines
@@ -993,8 +1000,8 @@ void UI::DrawDihedralViewport(App& app) {
         }
 
         // Draw the plane lines
-        drawList->AddLine(p1_horiz, p2_horiz, lineColor, 2.5f);
-        drawList->AddLine(p1_vert, p2_vert, lineColor, 2.5f);
+        drawList->AddLine(p1_horiz, p2_horiz, lineColor, 3.0f);
+        drawList->AddLine(p1_vert, p2_vert, lineColor, 3.0f);
         
         // add labels
         ImGui::SetCursorScreenPos(ImVec2((p1_horiz.x + p2_horiz.x) / 2 - 15, (p1_horiz.y + p2_horiz.y) / 2 - 20));

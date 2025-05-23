@@ -52,8 +52,8 @@ struct SceneData {
         float lineThickness = 3.0f;
         float planeOpacity = 0.6f;
 
-        // offsetXY
         float offset[2] = {0.0f, 0.0f};
+        bool VSync = true;
 
         bool showWelcomeWindow = true;
     };

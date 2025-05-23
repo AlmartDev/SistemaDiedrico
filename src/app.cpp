@@ -168,6 +168,11 @@ void App::Frame() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    if (m_sceneData.settings.VSync) 
+        glfwSwapInterval(1);
+    else
+        glfwSwapInterval(0);
+
     // Get the display size first (this is crucial for Emscripten)
 #ifdef __EMSCRIPTEN__
     // Get the actual canvas size from JavaScript
