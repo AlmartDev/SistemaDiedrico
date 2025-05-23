@@ -6,7 +6,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.7"
+#define PROGRAM_VERSION "0.7.2"
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -130,7 +130,7 @@ void UI::DrawSettingsWindow(App& app) {
     ImGui::SliderFloat("Camera Distance", &sceneData.settings.cameraDistance, 0.1f, 25.0f);
     camera.SetDistance(sceneData.settings.cameraDistance);
 
-    ImGui::InputFloat2("Offset (X, Y)", sceneData.settings.offset);
+    ImGui::DragFloat2("Offset (X, Y)", sceneData.settings.offset, 0.3f);
 
     ImGui::Checkbox("Enable VSync", &sceneData.settings.VSync);
 
@@ -328,11 +328,12 @@ void UI::DrawLinesTab(App& app) {
 
     // Draw line list with better styling
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
-    if (ImGui::BeginTable("LineTable", 4, ImGuiTableFlags_NoHostExtendX                
+    if (ImGui::BeginTable("LineTable", 5, ImGuiTableFlags_NoHostExtendX                
                                         | ImGuiTableFlags_RowBg  
                                         | ImGuiTableFlags_Resizable )) {
         ImGui::TableSetupColumn("Name");
-        ImGui::TableSetupColumn("Show Points");
+        ImGui::TableSetupColumn("Hide Points");
+        ImGui::TableSetupColumn("TEST:Visibility*");
         ImGui::TableSetupColumn("Color");
         ImGui::TableSetupColumn("Delete");
         ImGui::TableHeadersRow();
@@ -362,13 +363,16 @@ void UI::DrawLinesTab(App& app) {
             }
 
             ImGui::TableSetColumnIndex(2);
+            ImGui::Checkbox("##Visibility", &line.showVisibility);
+
+            ImGui::TableSetColumnIndex(3);
             if (ImGui::ColorEdit4("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
                 line.color[0] = color.x;
                 line.color[1] = color.y;
                 line.color[2] = color.z;
             }
 
-            ImGui::TableSetColumnIndex(3);
+            ImGui::TableSetColumnIndex(4);
             if (ImGui::Button("X")) {
                 sceneData.lines.erase(sceneData.lines.begin() + i);
                 app.DeletePoint(sceneData.points[line.point1index]);
@@ -658,7 +662,7 @@ void UI::DrawPresetWindow(App& app) {
                             preset["point2"]["a"].get<float>(),
                             preset["point2"]["c"].get<float>()
                         },
-                        true 
+                        true
                     });
                     ImGui::CloseCurrentPopup();
                 }
@@ -826,6 +830,7 @@ void UI::DrawDihedralViewport(App& app) {
     }
     
     // lines
+    // TODO: fix visibility
     for (const auto& line : sceneData.lines) {
         const auto& p1 = sceneData.points[line.point1index];
         const auto& p2 = sceneData.points[line.point2index];
@@ -837,6 +842,108 @@ void UI::DrawDihedralViewport(App& app) {
         float x2 = p2.coords[0] / 2.0f;
         float y3 = p2.coords[2] / 3.0f;
         float y4 = -p2.coords[1] / 3.0f;
+
+        // Function to draw a line with mixed solid/dashed segments based on visibility
+        auto drawMixedLine = [&](ImVec2 p1, ImVec2 p2, bool isR2) {
+            if (!line.showVisibility) {
+                drawList->AddLine(p1, p2, lineColor, 1.0f);
+                return;
+            }
+
+            const float dash_length = 5.0f;
+            ImVec2 dir = ImVec2(p2.x - p1.x, p2.y - p1.y);
+            float length = sqrtf(dir.x*dir.x + dir.y*dir.y);
+            dir.x /= length;
+            dir.y /= length;
+
+            // Find all points where the line crosses between visible and non-visible regions
+            std::vector<float> transition_points;
+            transition_points.push_back(0.0f); // Start point
+
+            // Sample along the line to find visibility transitions
+            const int samples = 100;
+            bool last_visible = false;
+            for (int i = 0; i <= samples; i++) {
+                float t = (float)i / samples;
+                ImVec2 pt(p1.x + dir.x * t * length, p1.y + dir.y * t * length);
+                
+                // Convert back to original coordinates to check visibility
+                float orig_x = (pt.x - (cursorPos.x + viewportSize.x / 2)) / 10.0f * 2.0f;
+                float orig_y;
+                if (isR2) {
+                    orig_y = -((pt.y - (cursorPos.y + viewportSize.y / 2)) / 10.0f * 3.0f);
+                } else {
+                    orig_y = ((pt.y - (cursorPos.y + viewportSize.y / 2)) / 10.0f * 3.0f);
+                }
+
+                bool current_visible = (orig_x >= 0 && orig_y >= 0);
+                
+                if (i > 0 && current_visible != last_visible) {
+                    // Find the exact transition point using binary search
+                    float low = (float)(i-1)/samples;
+                    float high = t;
+                    for (int j = 0; j < 5; j++) { // 5 iterations should be enough
+                        float mid = (low + high) / 2;
+                        ImVec2 mid_pt(p1.x + dir.x * mid * length, p1.y + dir.y * mid * length);
+                        float mid_orig_x = (mid_pt.x - (cursorPos.x + viewportSize.x / 2)) / 10.0f * 2.0f;
+                        float mid_orig_y;
+                        if (isR2) {
+                            mid_orig_y = -((mid_pt.y - (cursorPos.y + viewportSize.y / 2)) / 10.0f * 3.0f);
+                        } else {
+                            mid_orig_y = ((mid_pt.y - (cursorPos.y + viewportSize.y / 2)) / 10.0f * 3.0f);
+                        }
+                        bool mid_visible = (mid_orig_x >= 0 && mid_orig_y >= 0);
+                        
+                        if (mid_visible == last_visible) {
+                            low = mid;
+                        } else {
+                            high = mid;
+                        }
+                    }
+                    transition_points.push_back((low + high)/2);
+                }
+                
+                last_visible = current_visible;
+            }
+
+            transition_points.push_back(1.0f); // End point
+
+            // Draw segments between transition points
+            for (size_t i = 0; i < transition_points.size() - 1; i++) {
+                float t1 = transition_points[i];
+                float t2 = transition_points[i+1];
+                
+                ImVec2 seg_p1(p1.x + dir.x * t1 * length, p1.y + dir.y * t1 * length);
+                ImVec2 seg_p2(p1.x + dir.x * t2 * length, p1.y + dir.y * t2 * length);
+                
+                // Check visibility at midpoint
+                float mid_t = (t1 + t2) / 2;
+                ImVec2 mid_pt(p1.x + dir.x * mid_t * length, p1.y + dir.y * mid_t * length);
+                float mid_orig_x = (mid_pt.x - (cursorPos.x + viewportSize.x / 2)) / 10.0f * 2.0f;
+                float mid_orig_y;
+                if (isR2) {
+                    mid_orig_y = -((mid_pt.y - (cursorPos.y + viewportSize.y / 2)) / 10.0f * 3.0f);
+                } else {
+                    mid_orig_y = ((mid_pt.y - (cursorPos.y + viewportSize.y / 2)) / 10.0f * 3.0f);
+                }
+                bool is_visible = (mid_orig_x >= 0 && mid_orig_y >= 0);
+                
+                if (is_visible) {
+                    drawList->AddLine(seg_p1, seg_p2, lineColor, 1.0f);
+                } else {
+                    // Draw dashed line for non-visible segments
+                    float seg_length = sqrtf(pow(seg_p2.x - seg_p1.x, 2) + pow(seg_p2.y - seg_p1.y, 2));
+                    ImVec2 seg_dir((seg_p2.x - seg_p1.x)/seg_length, (seg_p2.y - seg_p1.y)/seg_length);
+                    
+                    for (float t = 0; t < seg_length; t += dash_length * 2) {
+                        ImVec2 start(seg_p1.x + seg_dir.x * t, seg_p1.y + seg_dir.y * t);
+                        ImVec2 end(seg_p1.x + seg_dir.x * (t + dash_length), seg_p1.y + seg_dir.y * (t + dash_length));
+                        if (t + dash_length > seg_length) end = seg_p2;
+                        drawList->AddLine(start, end, lineColor, 1.0f);
+                    }
+                }
+            }
+        };
 
         // r2 line (vertical plane)
         ImVec2 p1_r2(cursorPos.x + viewportSize.x / 2 + x1 * 10, (cursorPos.y + viewportSize.y / 2) - y1 * 10);
@@ -872,7 +979,7 @@ void UI::DrawDihedralViewport(App& app) {
             }
         }
         
-        drawList->AddLine(edge1_r2, edge2_r2, lineColor, 1.0f);
+        drawMixedLine(edge1_r2, edge2_r2, true);
 
         // r1 line (horizontal plane)
         ImVec2 p1_r1(cursorPos.x + viewportSize.x / 2 + x1 * 10, (cursorPos.y + viewportSize.y / 2) - y2 * 10);
@@ -908,7 +1015,7 @@ void UI::DrawDihedralViewport(App& app) {
             }
         }
         
-        drawList->AddLine(edge1_r1, edge2_r1, lineColor, 1.0f);
+        drawMixedLine(edge1_r1, edge2_r1, false);
 
         // draw labels
         ImGui::SetCursorScreenPos(ImVec2((edge1_r1.x + edge2_r1.x) / 2 - 15, (edge1_r1.y + edge2_r1.y) / 2 - 20));

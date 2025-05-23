@@ -225,6 +225,26 @@
                     "c": 41
                 },
                 "expand": true
+            },
+            {
+                "name": "P",
+                "description": "Plano cualquiera",
+                "point1": {
+                    "d": -48,
+                    "a": 45,
+                    "c": 15
+                },
+                "point2": {
+                    "d": -10,
+                    "a": -48,
+                    "c": 40
+                },
+                "point3": {
+                    "d": 25,
+                    "a": 25,
+                    "c": -31
+                },
+                "expand": true
             }
         ]
     }

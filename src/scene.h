@@ -19,6 +19,7 @@ struct SceneData {
         int point1index;
         int point2index;
         float color[3] = {1.0f, 1.0f, 1.0f}; // white
+        bool showVisibility = false;
     };
 
     struct Plane {
