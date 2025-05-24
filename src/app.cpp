@@ -38,6 +38,8 @@ bool App::Initialize() {
         return false;
     }
 
+    glfwMaximizeWindow(m_window); // start maximized on native platforms
+
     glfwSetWindowUserPointer(m_window, this);
     glfwSetFramebufferSizeCallback(m_window, [](GLFWwindow* window, int width, int height) {
         auto app = static_cast<App*>(glfwGetWindowUserPointer(window));

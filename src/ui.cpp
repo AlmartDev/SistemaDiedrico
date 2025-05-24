@@ -6,7 +6,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.7.2"
+#define PROGRAM_VERSION "0.8"
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -89,11 +89,11 @@ void UI::DrawMenuBar(App& app) {
         // it has to be exacly in the middle of the screen
         ImGui::SetNextWindowPos(ImVec2(width / 2 - 150, height / 2 - 75), ImGuiCond_Always);
         
-        if (ImGui::Begin("Welcome", &sceneData.settings.showWelcomeWindow, ImGuiWindowFlags_NoMove 
+        if (ImGui::Begin("README!", &sceneData.settings.showWelcomeWindow, ImGuiWindowFlags_NoMove 
             | ImGuiWindowFlags_AlwaysAutoResize
             | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize)) {
             ImGui::Text("Welcome to the Dihedral System App!");
-            ImGui::Text("IMPORTANT: This app is still in development.");
+            ImGui::Text("IMPORTANT: This app is still in early development.");
             ImGui::Separator();
             ImGui::Text("Version %s - WEB", PROGRAM_VERSION);
             ImGui::Text("Made by Alonso Martínez");
@@ -295,7 +295,7 @@ void UI::DrawLinesTab(App& app) {
     selectedPoint1 = getOriginalIndex(selectedIdx1);
     selectedPoint2 = getOriginalIndex(selectedIdx2);
 
-    ImGui::DragFloat("Line Thickness", &sceneData.settings.lineThickness, 0.1f, 0.1f, 20.0f);
+    ImGui::DragFloat("Line Thickness", &sceneData.settings.lineThickness, 0.1f, 0.1f, 100.0f);
 
     if (ImGui::Button("Add Line")) {
         if (selectedPoint1 != selectedPoint2) {
@@ -754,12 +754,76 @@ void UI::DrawPresetWindow(App& app) {
     ImGui::End();
 }
 
-// This is the "Dihedral engine"
-// this took so long to refactor
+// Helper function to calculate edge points for a line segment so we draw it as "infinite" line
+void CalculateEdgePoints(const ImVec2& p1, const ImVec2& p2, 
+                         float minX, float maxX, float minY, float maxY,
+                         ImVec2& edge1, ImVec2& edge2) {
+    // Handle vertical lines (x1 == x2)
+    if (abs(p2.x - p1.x) < 0.0001f) {
+        edge1 = ImVec2(p1.x, minY);
+        edge2 = ImVec2(p1.x, maxY);
+    }
+    // Handle horizontal lines (y1 == y2)
+    else if (abs(p2.y - p1.y) < 0.0001f) {
+        edge1 = ImVec2(minX, p1.y);
+        edge2 = ImVec2(maxX, p1.y);
+    }
+    else {
+        float m = (p2.y - p1.y) / (p2.x - p1.x);
+        float b = p1.y - m * p1.x;
+
+        if (abs(p2.x - p1.x) > abs(p2.y - p1.y)) {
+            edge1 = ImVec2(minX, m * minX + b);
+            edge2 = ImVec2(maxX, m * maxX + b);
+        }
+        else {
+            edge1 = ImVec2((minY - b) / m, minY);
+            edge2 = ImVec2((maxY - b) / m, maxY);
+        }
+    }
+}
+
+// Helper function to draw a line with labels
+void DrawLineWithLabels(ImDrawList* drawList, const ImVec2& p1, const ImVec2& p2,
+                        float minX, float maxX, float minY, float maxY,
+                        ImU32 color, char lineName, bool is2, bool dashed) {
+    ImVec2 edge1, edge2;
+    CalculateEdgePoints(p1, p2, minX, maxX, minY, maxY, edge1, edge2);
+    
+    if (dashed) {
+        // Draw dashed line
+        const float dashLength = 10.0f;
+        const float gapLength = 5.0f;
+        ImVec2 dir = ImVec2(edge2.x - edge1.x, edge2.y - edge1.y);
+        float length = sqrtf(dir.x * dir.x + dir.y * dir.y);
+        float dirLength = sqrtf(dir.x * dir.x + dir.y * dir.y);
+        if (dirLength > 0.0001f) {
+            dir.x /= dirLength;
+            dir.y /= dirLength;
+        }
+        
+        for (float i = 0; i < length; i += dashLength + gapLength) {
+            ImVec2 start = ImVec2(edge1.x + dir.x * i, edge1.y + dir.y * i);
+            ImVec2 end = ImVec2(start.x + dir.x * dashLength, start.y + dir.y * dashLength);
+            drawList->AddLine(start, end, color, 1.0f);
+        }
+    } else {
+        // Draw solid line
+        drawList->AddLine(edge1, edge2, color, 1.0f);
+    }    
+    // Draw labels
+    float labelX = (edge1.x + edge2.x) / 2 + (is2 ? 15 : -15);
+    float labelY = (edge1.y + edge2.y) / 2 - 20;
+    ImGui::SetCursorScreenPos(ImVec2(labelX, labelY));
+
+    ImVec4 colorVec = ImGui::ColorConvertU32ToFloat4(color);
+    ImGui::TextColored(colorVec, "%c%d", lineName, is2 ? 2 : 1);
+}
+
+// This is the "Dihedral engine" // we should refactor this, and a lot from this file too
 void UI::DrawDihedralViewport(App& app) {
     auto& sceneData = app.GetSceneData();
 
-    // Setup window styles
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(
@@ -767,60 +831,37 @@ void UI::DrawDihedralViewport(App& app) {
         sceneData.settings.dihedralBackgroundColor[1], 
         sceneData.settings.dihedralBackgroundColor[2], 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
-
+        
+    // big mistake again
+    //ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 550, 50), ImGuiCond_Always);
     ImGui::Begin("Dihedral Projection", nullptr, 
                 ImGuiWindowFlags_NoCollapse | 
                 ImGuiWindowFlags_NoScrollbar |
                 ImGuiWindowFlags_NoTitleBar);
 
-    // Helper functions
-    auto GetLineColor = [&]() {
-        return IM_COL32(
-            sceneData.settings.dihedralLineColor[0] * 255, 
-            sceneData.settings.dihedralLineColor[1] * 255, 
-            sceneData.settings.dihedralLineColor[2] * 255, 255);
-    };
+    ImColor lineColor = IM_COL32(
+        sceneData.settings.dihedralLineColor[0] * 255, 
+        sceneData.settings.dihedralLineColor[1] * 255, 
+        sceneData.settings.dihedralLineColor[2] * 255, 255);
 
-    auto GetViewportInfo = [&]() {
-        struct ViewportInfo {
-            ImVec2 size;
-            ImDrawList* drawList;
-            ImVec2 cursorPos;
-            ImVec2 center;
-        };
-        ImVec2 viewportSize = ImGui::GetContentRegionAvail();
-        return ViewportInfo{
-            viewportSize,
-            ImGui::GetWindowDrawList(),
-            ImGui::GetCursorScreenPos(),
-            ImVec2(ImGui::GetCursorScreenPos().x + viewportSize.x / 2, 
-                   ImGui::GetCursorScreenPos().y + viewportSize.y / 2)
-        };
-    };
+    ImVec2 viewportSize = ImGui::GetContentRegionAvail();
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 cursorPos = ImGui::GetCursorScreenPos();
 
-    auto DrawGroundLine = [](ImDrawList* drawList, const ImVec2& p0, const ImVec2& p1, ImColor color) {
-        drawList->AddLine(p0, p1, color, 2.5f);
-        // Small indicator lines
-        drawList->AddLine(ImVec2(p0.x + 4, p0.y + 5), ImVec2(p0.x + 25, p0.y + 5), color, 2.0f);
-        drawList->AddLine(ImVec2(p1.x - 4, p1.y + 5), ImVec2(p1.x - 25, p1.y + 5), color, 2.0f);
-    };
+    // Ground line (L.T.)
+    ImVec2 p0 = ImVec2(cursorPos.x, cursorPos.y + viewportSize.y / 2);
+    ImVec2 p1 = ImVec2(cursorPos.x + viewportSize.x, cursorPos.y + viewportSize.y / 2);
+    drawList->AddLine(p0, p1, lineColor, 2.5f); 
 
-    auto DrawOriginPoint = [](ImDrawList* drawList, const ImVec2& center, ImColor color) {
-        ImVec2 p2 = ImVec2(center.x, center.y - 8);
-        ImVec2 p3 = ImVec2(center.x, center.y + 8);
-        drawList->AddLine(p2, p3, color, 2.5f);
-    };
+    // Small indicator lines
+    drawList->AddLine(ImVec2(p0.x + 4, p0.y + 5), ImVec2(p0.x + 25, p0.y + 5), lineColor, 2.0f);
+    drawList->AddLine(ImVec2(p1.x - 4, p1.y + 5), ImVec2(p1.x - 25, p1.y + 5), lineColor, 2.0f);
 
-    // Get viewport information
-    auto viewport = GetViewportInfo();
-    ImColor lineColor = GetLineColor();
-
-    // Draw ground line and origin point
-    ImVec2 groundStart(viewport.cursorPos.x, viewport.center.y);
-    ImVec2 groundEnd(viewport.cursorPos.x + viewport.size.x, viewport.center.y);
-    DrawGroundLine(viewport.drawList, groundStart, groundEnd, lineColor);
-    DrawOriginPoint(viewport.drawList, viewport.center, lineColor);
-
+    // Origin point
+    ImVec2 p2 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 - 8);
+    ImVec2 p3 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 + 8);
+    drawList->AddLine(p2, p3, lineColor, 2.5f);
+    
     // Draw points in 2D projection
     for (const auto& point : sceneData.points) {
         if (point.hidden) continue;
@@ -829,168 +870,112 @@ void UI::DrawDihedralViewport(App& app) {
         float y1 = point.coords[2] / 3.0f;
         float y2 = -point.coords[1] / 3.0f;
 
-        ImVec2 pos1(viewport.center.x + x * 10, viewport.center.y - y1 * 10);
-        ImVec2 pos2(viewport.center.x + x * 10, viewport.center.y - y2 * 10);
+        ImVec2 pos1(cursorPos.x + viewportSize.x / 2 + x * 10, (cursorPos.y + viewportSize.y / 2) - y1 * 10);
+        ImVec2 pos2(cursorPos.x + viewportSize.x / 2 + x * 10, (cursorPos.y + viewportSize.y / 2) - y2 * 10);
 
-        ImU32 pointColor = IM_COL32(point.color[0] * 255, point.color[1] * 255, point.color[2] * 255, 255);
-        viewport.drawList->AddCircleFilled(pos1, sceneData.settings.pointSize / 2, pointColor);
-        viewport.drawList->AddCircleFilled(pos2, sceneData.settings.pointSize / 2, pointColor);
+        drawList->AddCircleFilled(pos1, sceneData.settings.pointSize / 2,
+                                IM_COL32(point.color[0] * 255, point.color[1] * 255, point.color[2] * 255, 255));
+        drawList->AddCircleFilled(pos2, sceneData.settings.pointSize / 2,
+                                IM_COL32(point.color[0] * 255, point.color[1] * 255, point.color[2] * 255, 255));
         
         // Draw labels
-        if ((pos2.x - 20 == pos1.x - 20) && (pos2.y - 20 == pos1.y - 20)) {
+        if (pos2.x - 20 == pos1.x - 20 && pos2.y - 20 == pos1.y - 20) {
             ImGui::SetCursorScreenPos(ImVec2(pos2.x - 20, pos2.y - 20));
-            ImGui::TextColored(ImVec4(point.color[0], point.color[1], point.color[2], 1.0f), 
-                              "%c1 = %c2", point.name[0], point.name[0]);
-        } else {
+            ImGui::TextColored(ImVec4(point.color[0], point.color[1], point.color[2], 1.0f), "%c1 = %c2", point.name[0], point.name[0]);
+        }
+        else {
             ImGui::SetCursorScreenPos(ImVec2(pos2.x - 20, pos2.y - 20));
             ImGui::TextColored(ImVec4(point.color[0], point.color[1], point.color[2], 1.0f), "%c1", point.name[0]);
             ImGui::SetCursorScreenPos(ImVec2(pos1.x - 20, pos1.y - 20));
             ImGui::TextColored(ImVec4(point.color[0], point.color[1], point.color[2], 1.0f), "%c2", point.name[0]);
         }
 
-        // Draw connecting lines to ground
-        ImVec2 ltPos(viewport.center.x + x * 10, viewport.center.y);
-        viewport.drawList->AddLine(pos1, ltPos, lineColor, .75f);
-        viewport.drawList->AddLine(pos2, ltPos, lineColor, .75f);
-    }
+        ImVec2 ltPos(cursorPos.x + viewportSize.x / 2 + x * 10, cursorPos.y + viewportSize.y / 2);
 
-    // Draw lines
+        drawList->AddLine(pos1, ltPos, lineColor, .75f);
+        drawList->AddLine(pos2, ltPos, lineColor, .75f);
+    }
+    
+    // TODO: visibility study
     for (const auto& line : sceneData.lines) {
         const auto& p1 = sceneData.points[line.point1index];
         const auto& p2 = sceneData.points[line.point2index];
 
-        auto CalculateLinePoints = [&](float yCoord1, float yCoord2, bool isR2) {
-            float x1 = p1.coords[0] / 2.0f;
-            float y1 = yCoord1 / 3.0f;
-            float x2 = p2.coords[0] / 2.0f;
-            float y2 = yCoord2 / 3.0f;
+        // Calculate transformed coordinates
+        float x1 = p1.coords[0] / 2.0f;  // z axes
+        float y1_r2 = p1.coords[2] / 3.0f;  // cota
+        float y1_r1 = -p1.coords[1] / 3.0f;  // alejamiento
 
-            ImVec2 p1_proj(viewport.center.x + x1 * 10, viewport.center.y - y1 * 10);
-            ImVec2 p2_proj(viewport.center.x + x2 * 10, viewport.center.y - y2 * 10);
+        float x2 = p2.coords[0] / 2.0f;
+        float y2_r2 = p2.coords[2] / 3.0f;
+        float y2_r1 = -p2.coords[1] / 3.0f;
 
-            // Extend line to viewport borders
-            ImVec2 dir = ImVec2(p2_proj.x - p1_proj.x, p2_proj.y - p1_proj.y);
-            if (fabs(dir.x) < 1e-5) { // vertical line
-                return std::make_pair(
-                    ImVec2(p1_proj.x, viewport.cursorPos.y),
-                    ImVec2(p1_proj.x, viewport.cursorPos.y + viewport.size.y)
-                );
-            } else if (fabs(dir.y) < 1e-5) { // horizontal line
-                return std::make_pair(
-                    ImVec2(viewport.cursorPos.x, p1_proj.y),
-                    ImVec2(viewport.cursorPos.x + viewport.size.x, p1_proj.y)
-                );
-            } else {
-                float m = dir.y / dir.x;
-                float b = p1_proj.y - m * p1_proj.x;
-                
-                if (fabs(dir.x) > fabs(dir.y)) {
-                    return std::make_pair(
-                        ImVec2(viewport.cursorPos.x, m * viewport.cursorPos.x + b),
-                        ImVec2(viewport.cursorPos.x + viewport.size.x, m * (viewport.cursorPos.x + viewport.size.x) + b)
-                    );
-                } else {
-                    return std::make_pair(
-                        ImVec2((viewport.cursorPos.y - b) / m, viewport.cursorPos.y),
-                        ImVec2((viewport.cursorPos.y + viewport.size.y - b) / m, viewport.cursorPos.y + viewport.size.y)
-                    );
-                }
-            }
-        };
+        // Calculate viewport center
+        ImVec2 viewportCenter(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2);
+        float scale = 10.0f;
 
-        auto DrawMixedLine = [&](const ImVec2& start, const ImVec2& end, bool isR2) {
-            if (!line.showVisibility) {
-                viewport.drawList->AddLine(start, end, lineColor, 1.0f);
-                return;
-            }
+        // R2 line (vertical plane)
+        ImVec2 p1_r2(viewportCenter.x + x1 * scale, viewportCenter.y - y1_r2 * scale);
+        ImVec2 p2_r2(viewportCenter.x + x2 * scale, viewportCenter.y - y2_r2 * scale);
+        DrawLineWithLabels(drawList, p1_r2, p2_r2, 
+                        cursorPos.x, cursorPos.x + viewportSize.x,
+                        cursorPos.y, cursorPos.y + viewportSize.y,
+                        lineColor, line.name[0], true, false);
 
-            const float dash_length = 5.0f;
-            ImVec2 dir = ImVec2(end.x - start.x, end.y - start.y);
-            float length = sqrtf(dir.x*dir.x + dir.y*dir.y);
-            dir.x /= length;
-            dir.y /= length;
+        // R1 line (horizontal plane)
+        ImVec2 p1_r1(viewportCenter.x + x1 * scale, viewportCenter.y - y1_r1 * scale);
+        ImVec2 p2_r1(viewportCenter.x + x2 * scale, viewportCenter.y - y2_r1 * scale);
+        DrawLineWithLabels(drawList, p1_r1, p2_r1,
+                        cursorPos.x, cursorPos.x + viewportSize.x,
+                        cursorPos.y, cursorPos.y + viewportSize.y,
+                        lineColor, line.name[0], false, false);
+        
+        // Draw ground points
 
-            // Find visibility transition points
-            std::vector<float> transitions = {0.0f};
-            bool last_visible = false;
-            const int samples = 100;
+        if (y1_r2 * y2_r2 <= 0) {  // Check if line crosses ground level
+            float t = -y1_r2 / (y2_r2 - y1_r2);
+            float x_ground = x1 + t * (x2 - x1);
+            float y_r1_ground = y1_r1 + t * (y2_r1 - y1_r1);
             
-            for (int i = 0; i <= samples; i++) {
-                float t = (float)i / samples;
-                ImVec2 pt(start.x + dir.x * t * length, start.y + dir.y * t * length);
-                
-                float orig_x = (pt.x - viewport.center.x) / 10.0f * 2.0f;
-                float orig_y = isR2 ? 
-                    -((pt.y - viewport.center.y) / 10.0f * 3.0f) : 
-                    ((pt.y - viewport.center.y) / 10.0f * 3.0f);
+            ImVec2 groundPoint(
+                viewportCenter.x + x_ground * scale,
+                viewportCenter.y - y_r1_ground * scale
+            );
 
-                bool current_visible = (orig_x >= 0 && orig_y >= 0);
-                
-                if (i > 0 && current_visible != last_visible) {
-                    float low = (float)(i-1)/samples;
-                    float high = t;
-                    for (int j = 0; j < 5; j++) {
-                        float mid = (low + high) / 2;
-                        ImVec2 mid_pt(start.x + dir.x * mid * length, start.y + dir.y * mid * length);
-                        float mid_orig_x = (mid_pt.x - viewport.center.x) / 10.0f * 2.0f;
-                        float mid_orig_y = isR2 ? 
-                            -((mid_pt.y - viewport.center.y) / 10.0f * 3.0f) : 
-                            ((mid_pt.y - viewport.center.y) / 10.0f * 3.0f);
-                        bool mid_visible = (mid_orig_x >= 0 && mid_orig_y >= 0);
-                        
-                        if (mid_visible == last_visible) low = mid;
-                        else high = mid;
-                    }
-                    transitions.push_back((low + high)/2);
-                }
-                last_visible = current_visible;
+            // Optional: Draw a vertical line from r2 to ground
+            ImVec2 r2_groundPoint(
+                viewportCenter.x + x_ground * scale,
+                viewportCenter.y  // Ground level in r2 view is at viewportCenter.y (y=0)
+            );
+
+            if (sceneData.settings.showCutLines) {
+                drawList->AddCircleFilled(groundPoint, 3.0f, IM_COL32(255, 0, 0, 255));
+                drawList->AddLine(r2_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f);
             }
-            transitions.push_back(1.0f);
+        }
 
-            // Draw segments
-            for (size_t i = 0; i < transitions.size() - 1; i++) {
-                float t1 = transitions[i];
-                float t2 = transitions[i+1];
-                ImVec2 seg_start(start.x + dir.x * t1 * length, start.y + dir.y * t1 * length);
-                ImVec2 seg_end(start.x + dir.x * t2 * length, start.y + dir.y * t2 * length);
-                
-                float mid_t = (t1 + t2) / 2;
-                ImVec2 mid_pt(start.x + dir.x * mid_t * length, start.y + dir.y * mid_t * length);
-                float mid_orig_x = (mid_pt.x - viewport.center.x) / 10.0f * 2.0f;
-                float mid_orig_y = isR2 ? 
-                    -((mid_pt.y - viewport.center.y) / 10.0f * 3.0f) : 
-                    ((mid_pt.y - viewport.center.y) / 10.0f * 3.0f);
-                bool is_visible = (mid_orig_x >= 0 && mid_orig_y >= 0);
-                
-                if (is_visible) {
-                    viewport.drawList->AddLine(seg_start, seg_end, lineColor, 1.0f);
-                } else {
-                    for (float t = 0; t < length; t += dash_length * 2) {
-                        ImVec2 dash_start(seg_start.x + dir.x * t, seg_start.y + dir.y * t);
-                        ImVec2 dash_end(seg_start.x + dir.x * (t + dash_length), seg_start.y + dir.y * (t + dash_length));
-                        if (t + dash_length > length) dash_end = seg_end;
-                        viewport.drawList->AddLine(dash_start, dash_end, lineColor, 1.0f);
-                    }
-                }
+        if (y1_r1 * y2_r1 <= 0) {  // Check if line crosses ground level
+            float t = -y1_r1 / (y2_r1 - y1_r1);
+            float x_ground = x1 + t * (x2 - x1);
+            float y_r2_ground = y1_r2 + t * (y2_r2 - y1_r2);
+            
+            ImVec2 groundPoint(
+                viewportCenter.x + x_ground * scale,
+                viewportCenter.y - y_r2_ground * scale
+            );
+            
+            // Optional: Draw a horizontal line from r1 to ground
+            ImVec2 r1_groundPoint(
+                viewportCenter.x + x_ground * scale,
+                viewportCenter.y  // Ground level in r1 view is at viewportCenter.y (y=0)
+            );
+            
+            if (sceneData.settings.showCutLines) {
+                drawList->AddCircleFilled(groundPoint, 3.0f, IM_COL32(255, 0, 0, 255));
+                drawList->AddLine(r1_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f);
             }
-        };
-
-        // Draw R2 line (vertical plane)
-        auto [r2_start, r2_end] = CalculateLinePoints(p1.coords[2], p2.coords[2], true);
-        DrawMixedLine(r2_start, r2_end, true);
-
-        // Draw R1 line (horizontal plane)
-        auto [r1_start, r1_end] = CalculateLinePoints(-p1.coords[1], -p2.coords[1], false);
-        DrawMixedLine(r1_start, r1_end, false);
-
-        // Draw labels
-        ImGui::SetCursorScreenPos(ImVec2((r1_start.x + r1_end.x) / 2 - 15, (r1_start.y + r1_end.y) / 2 - 20));
-        ImGui::TextColored(lineColor, "%c1", line.name[0]);
-        ImGui::SetCursorScreenPos(ImVec2((r2_start.x + r2_end.x) / 2 + 15, (r2_start.y + r2_end.y) / 2 - 20));
-        ImGui::TextColored(lineColor, "%c2", line.name[0]);
+        }
     }
-
-    // Draw planes
     for (const auto& plane : sceneData.planes) {
         const auto& p1 = sceneData.points[plane.point1index];
         const auto& p2 = sceneData.points[plane.point2index];
@@ -1006,67 +991,73 @@ void UI::DrawDihedralViewport(App& app) {
         float C = normal.z;
         float D = -(A * p1.coords[0] + B * p1.coords[1] + C * p1.coords[2]);
         
-        auto CalculatePlaneLine = [&](bool isVertical) {
-            if (isVertical) {
-                // Vertical plane line (x=0 and z=0 intersections)
-                float z1_vert = (-D) / C;
-                glm::vec3 vert_point1(0.0f, 0.0f, z1_vert / 3);
-                float x1_vert = (-D) / A;
-                glm::vec3 vert_point2(x1_vert / 2, 0.0f, 0.0f);
-                
-                ImVec2 p1(viewport.center.x + vert_point1.x * 10, viewport.center.y - vert_point1.z * 10);
-                ImVec2 p2(viewport.center.x + vert_point2.x * 10, viewport.center.y - vert_point2.z * 10);
-                
-                // Extend to viewport borders
-                if (fabs(p2.x - p1.x) < 1e-5) { // vertical line
-                    return std::make_pair(
-                        ImVec2(p1.x, viewport.cursorPos.y),
-                        ImVec2(p1.x, viewport.cursorPos.y + viewport.size.y)
-                    );
-                } else {
-                    float m = (p2.y - p1.y) / (p2.x - p1.x);
-                    float b = p1.y - m * p1.x;
-                    ImVec2 start((viewport.cursorPos.y - b) / m, viewport.cursorPos.y);
-                    ImVec2 end((viewport.cursorPos.y + viewport.size.y - b) / m, viewport.cursorPos.y + viewport.size.y);
-                    return std::make_pair(start, end);
-                }
-            } else {
-                // Horizontal plane line (x=0 and y=0 intersections)
-                float y1_horiz = (-D) / B;
-                glm::vec3 horiz_point1(0.0f, -y1_horiz / 3, 0.0f);
-                float x2_horiz = (-D) / A;
-                glm::vec3 horiz_point2(x2_horiz / 2, 0.0f, 0.0f);
-                
-                ImVec2 p1(viewport.center.x + horiz_point1.x * 10, viewport.center.y - horiz_point1.y * 10);
-                ImVec2 p2(viewport.center.x + horiz_point2.x * 10, viewport.center.y + horiz_point2.y * 10);
-                
-                // Extend to viewport borders
-                if (fabs(p2.y - p1.y) < 1e-5) { // horizontal line
-                    return std::make_pair(
-                        ImVec2(viewport.cursorPos.x, p1.y),
-                        ImVec2(viewport.cursorPos.x + viewport.size.x, p1.y)
-                    );
-                } else {
-                    float m = (p2.y - p1.y) / (p2.x - p1.x);
-                    float b = p1.y - m * p1.x;
-                    ImVec2 start(viewport.cursorPos.x, m * viewport.cursorPos.x + b);
-                    ImVec2 end(viewport.cursorPos.x + viewport.size.x, m * (viewport.cursorPos.x + viewport.size.x) + b);
-                    return std::make_pair(start, end);
-                }
-            }
-        };
+        float z1_vert = (-D) / C;
+        glm::vec3 vert_point1(0.0f, 0.0f, z1_vert / 3);
 
-        // Draw plane lines
-        auto [horiz_start, horiz_end] = CalculatePlaneLine(false);
-        auto [vert_start, vert_end] = CalculatePlaneLine(true);
+        float x1_vert = (-D) / A;
+        glm::vec3 vert_point2(x1_vert / 2, 0.0f, 0.0f);
+
+        float y1_horiz = (-D) / B;
+        glm::vec3 horiz_point1(0.0f, -y1_horiz / 3, 0.0f);
+
+        float x2_horiz = (-D) / A;
+        glm::vec3 horiz_point2(x2_horiz / 2, 0.0f, 0.0f);
+
+        ImVec2 p1_vert(cursorPos.x + viewportSize.x / 2 + vert_point1.x * 10,
+                   (cursorPos.y + viewportSize.y / 2) - vert_point1.z * 10);
+        ImVec2 p2_vert(cursorPos.x + viewportSize.x / 2 + vert_point2.x * 10,
+                   (cursorPos.y + viewportSize.y / 2) - vert_point2.z * 10);
+
+        ImVec2 p1_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point1.x * 10,
+                (cursorPos.y + viewportSize.y / 2) - horiz_point1.y * 10);
+        ImVec2 p2_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point2.x * 10,
+                (cursorPos.y + viewportSize.y / 2) + horiz_point2.y * 10);
+
+        ImVec2 vert_dir = ImVec2(p2_vert.x - p1_vert.x, p2_vert.y - p1_vert.y);
+        if (fabs(vert_dir.x) < 1e-5) { // vertical line
+            p1_vert = ImVec2(p1_vert.x, cursorPos.y);
+            p2_vert = ImVec2(p1_vert.x, cursorPos.y + viewportSize.y);
+        } else {
+            float m = vert_dir.y / vert_dir.x;
+            float b = p1_vert.y - m * p1_vert.x;
+
+            float x_top = (cursorPos.y - b) / m;
+            float x_bottom = (cursorPos.y + viewportSize.y - b) / m;
+            p1_vert = ImVec2(x_top, cursorPos.y);
+        }
+
+        ImVec2 horiz_dir = ImVec2(p2_horiz.x - p1_horiz.x, p2_horiz.y - p1_horiz.y);
+        if (fabs(horiz_dir.y) < 1e-5) { // horizontal line
+            p1_horiz = ImVec2(cursorPos.x, p1_horiz.y);
+            p2_horiz = ImVec2(cursorPos.x + viewportSize.x, p1_horiz.y);
+        } else {
+            float m = horiz_dir.y / horiz_dir.x;
+            float b = p1_horiz.y - m * p1_horiz.x;
+            // Intersect with left and right borders
+            float y_left = m * cursorPos.x + b;
+            float y_right = m * (cursorPos.x + viewportSize.x) + b;
+            p1_horiz = ImVec2(cursorPos.x, y_left);
+        }
+
+        // handle vertical lines (x1 == x2)
+        if (abs(p2_vert.x - p1_vert.x) < 0.0001f) {
+            p1_vert = ImVec2(p1_vert.x, cursorPos.y);
+            p2_vert = ImVec2(p1_vert.x, cursorPos.y + viewportSize.y);
+        }
+        // handle horizontal lines (y1 == y2)
+        else if (abs(p2_horiz.y - p1_horiz.y) < 0.0001f) {
+            p1_horiz = ImVec2(cursorPos.x, p1_horiz.y);
+            p2_horiz = ImVec2(cursorPos.x + viewportSize.x, p1_horiz.y);
+        }
+
+        // Draw the plane lines
+        drawList->AddLine(p1_horiz, p2_horiz, lineColor, 3.0f);
+        drawList->AddLine(p1_vert, p2_vert, lineColor, 3.0f);
         
-        viewport.drawList->AddLine(horiz_start, horiz_end, lineColor, 3.0f);
-        viewport.drawList->AddLine(vert_start, vert_end, lineColor, 3.0f);
-        
-        // Draw labels
-        ImGui::SetCursorScreenPos(ImVec2((horiz_start.x + horiz_end.x) / 2 - 15, (horiz_start.y + horiz_end.y) / 2 - 20));
+        // add labels
+        ImGui::SetCursorScreenPos(ImVec2((p1_horiz.x + p2_horiz.x) / 2 - 15, (p1_horiz.y + p2_horiz.y) / 2 - 20));
         ImGui::TextColored(lineColor, "%c1", plane.name[0]);
-        ImGui::SetCursorScreenPos(ImVec2((vert_start.x + vert_end.x) / 2 + 15, (vert_start.y + vert_end.y) / 2 - 20));
+        ImGui::SetCursorScreenPos(ImVec2((p1_vert.x + p2_vert.x) / 2 + 15, (p1_vert.y + p2_vert.y) / 2 - 20));
         ImGui::TextColored(lineColor, "%c2", plane.name[0]);
     }
 
