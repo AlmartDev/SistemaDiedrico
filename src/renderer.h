@@ -21,7 +21,7 @@ public:
                    float size);
     void DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lines,
                    const std::vector<glm::vec3>& colors, 
-                   float thickness);
+                   float thickness, const Camera& camera);
 
     void DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes, 
                    const std::vector<glm::vec3>& colors,

@@ -146,7 +146,7 @@ void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
     }
 
     m_renderer.DrawPoints(pointPositions, pointColors, m_sceneData.settings.pointSize);
-    m_renderer.DrawLines(linePositions, lineColors, m_sceneData.settings.lineThickness);
+    m_renderer.DrawLines(linePositions, lineColors, m_sceneData.settings.lineThickness, m_camera);
     m_renderer.DrawPlanes(planePositions, planeColors, planeExpand, m_sceneData.settings.planeOpacity);
 }
 

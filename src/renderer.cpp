@@ -201,74 +201,80 @@ void Renderer::DrawPoints(const std::vector<glm::vec3>& points,
     glBindVertexArray(0);
 }
 
+// Helper function to create thick lines
+static void CreateThickLineGeometry(std::vector<glm::vec3>& vertices, 
+                                   const glm::vec3& start, 
+                                   const glm::vec3& end, 
+                                   const glm::vec3& cameraPos,
+                                   float thickness) {
+    glm::vec3 lineDir = glm::normalize(end - start);
+    glm::vec3 cameraToLine = glm::normalize((start + end) * 0.5f - cameraPos);
+    glm::vec3 right = glm::normalize(glm::cross(cameraToLine, lineDir)) * thickness * 0.5f;
+    glm::vec3 up = glm::normalize(glm::cross(lineDir, right)) * thickness * 0.5f;
+
+    vertices = {
+        // First triangle
+        start - right - up,
+        start + right - up,
+        end - right + up,
+        
+        // Second triangle
+        start + right - up,
+        end + right + up,
+        end - right + up
+    };
+}
+
+// glLineWidth doesnt work on WebGL, so we just refactored the whole function
+// we now create a quad that always faces the camera
 void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lines, 
                          const std::vector<glm::vec3>& colors, 
-                         float thickness) {
-    
+                         float thickness, const Camera& camera) {
     if (lines.empty() || lines.size() != colors.size()) return;
 
-    GLuint linesVAO, linesVBO;
-    glGenVertexArrays(1, &linesVAO);
-    glGenBuffers(1, &linesVBO);
-    
     glUseProgram(s_shaderProgram);
+    glm::vec3 cameraPos = camera.GetPosition();
+    thickness /= 100.0f;
+
+    GLuint VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
     for (size_t i = 0; i < lines.size(); i++) {
-        // Prepare line vertices (start and end points)
         const auto& line = lines[i];
-        std::vector<glm::vec3> lineVertices = {line.first, line.second};
+        std::vector<glm::vec3> vertices;
 
-        // Create cut lines (projections to y=0 and z=0 planes)
-        std::vector<glm::vec3> cutLines = {
-            glm::vec3(line.first.x, 0.0f, line.first.z),  // y=0 start
-            glm::vec3(line.second.x, 0.0f, line.second.z), // y=0 end
-            glm::vec3(line.first.x, line.first.y, 0.0f),  // z=0 start
-            glm::vec3(line.second.x, line.second.y, 0.0f)  // z=0 end
-        };
-
-        if (m_showCutLines) {
-            // Draw cut lines (projections)
-            glBindVertexArray(linesVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, linesVBO);
-            glBufferData(GL_ARRAY_BUFFER, cutLines.size() * sizeof(glm::vec3), cutLines.data(), GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-            glEnableVertexAttribArray(0);
-
-            glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), 0.0f, 1.0f, 0.0f);
-            glDrawArrays(GL_LINES, 0, 2);  // y=0 projection
-            glDrawArrays(GL_LINES, 2, 2);  // z=0 projection
-        }
-
-        // Draw main line with thickness
-        glLineWidth(thickness);
-        glBindVertexArray(linesVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, linesVBO);
-        glBufferData(GL_ARRAY_BUFFER, lineVertices.size() * sizeof(glm::vec3), lineVertices.data(), GL_STATIC_DRAW);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-        glEnableVertexAttribArray(0);
-
+        CreateThickLineGeometry(vertices, line.first, line.second, cameraPos, thickness);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);
         glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), colors[i].r, colors[i].g, colors[i].b);
-        glDrawArrays(GL_LINES, 0, 2);
+        glDrawArrays(GL_TRIANGLES, 0, vertices.size());
 
         if (m_showCutLines) {
-            // Draw cut lines (projections)
-            glBindVertexArray(linesVAO);
-            glBindBuffer(GL_ARRAY_BUFFER, linesVBO);
-            glBufferData(GL_ARRAY_BUFFER, cutLines.size() * sizeof(glm::vec3), cutLines.data(), GL_STATIC_DRAW);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
-            glEnableVertexAttribArray(0);
-
+            CreateThickLineGeometry(vertices, 
+                glm::vec3(line.first.x, line.first.y, 0.0f), 
+                glm::vec3(line.second.x, line.second.y, 0.0f), 
+                cameraPos, thickness);
+            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);
             glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), 0.0f, 1.0f, 0.0f);
-            glDrawArrays(GL_LINES, 0, 2);  // y=0 projection
-            glDrawArrays(GL_LINES, 2, 2);  // z=0 projection
-        }
+            glDrawArrays(GL_TRIANGLES, 0, vertices.size());
 
-        // Reset line width
-        glLineWidth(1.0f);
+            CreateThickLineGeometry(vertices, 
+                glm::vec3(line.first.x, 0.0f, line.first.z), 
+                glm::vec3(line.second.x, 0.0f, line.second.z), 
+                cameraPos, thickness);
+            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);
+            glUniform3f(glGetUniformLocation(s_shaderProgram, "color"), 0.0f, 1.0f, 0.0f);
+            glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+        }
     }
-    
+
     glBindVertexArray(0);
-    glDeleteVertexArrays(1, &linesVAO);
-    glDeleteBuffers(1, &linesVBO);
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
 }
 
 void Renderer::DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes, 
