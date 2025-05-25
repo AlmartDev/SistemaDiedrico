@@ -6,7 +6,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.8"
+#define PROGRAM_VERSION "0.8.1"
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -127,8 +127,8 @@ void UI::DrawSettingsWindow(App& app) {
     ImGui::SliderFloat("Mouse Sensitivity", &sceneData.settings.mouseSensitivity, 0.0f, 2.0f);
     camera.SetSensitivity(sceneData.settings.mouseSensitivity); 
     
-    ImGui::SliderFloat("Camera Distance", &sceneData.settings.cameraDistance, 0.1f, 25.0f);
-    camera.SetDistance(sceneData.settings.cameraDistance);
+    //ImGui::SliderFloat("Camera Distance", &sceneData.settings.cameraDistance, 0.1f, 25.0f);
+    //camera.SetDistance(sceneData.settings.cameraDistance);
 
     ImGui::DragFloat2("Offset (X, Y)", sceneData.settings.offset, 0.3f);
 

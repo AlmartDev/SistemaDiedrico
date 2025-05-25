@@ -47,6 +47,13 @@ bool App::Initialize() {
         app->m_windowHeight = height;
     });
 
+    glfwSetScrollCallback(m_window, [](GLFWwindow* window, double xoffset, double yoffset) {
+        auto app = static_cast<App*>(glfwGetWindowUserPointer(window));
+        if (app) {
+            app->m_scrollY += yoffset;
+        }
+    });
+
     glfwMakeContextCurrent(m_window);
 
 #ifndef __EMSCRIPTEN__
@@ -97,10 +104,10 @@ void App::HandleInput() {
         m_isMousePressed = false;
     }
 
-    /*if (m_scrollY != 0) {
+    if (m_scrollY != 0) {
         m_camera.SetDistance(m_camera.GetDistance() - static_cast<float>(m_scrollY) * .3f);
         m_scrollY = 0.0;
-    }*/
+    }
 
     if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(m_window, true);

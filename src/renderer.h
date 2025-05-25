@@ -22,7 +22,6 @@ public:
     void DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lines,
                    const std::vector<glm::vec3>& colors, 
                    float thickness, const Camera& camera);
-
     void DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes, 
                    const std::vector<glm::vec3>& colors,
                    std::vector<bool>& expand,
@@ -30,21 +29,26 @@ public:
 
     void SetAxesType(int type) { m_axesType = type; }
     void SetDihedralsVisible(bool visible) { m_showDihedral = visible; }
-    
     void SetCutPointVisible(bool visible) { m_showCutPoints = visible; }
     void SetCutLineVisible(bool visible) { m_showCutLines = visible; }
-    void SetCutPlaneVisible(bool visible) { m_showCutPlanes = visible; }
 
 private:
     void DrawAxes();
+    void SetupShaderProgram(GLuint& program, const char* vertexSrc, const char* fragmentSrc);
+    void SetupBuffer(GLuint& vao, GLuint& vbo, const void* data, size_t size);
 
     int m_axesType = 0;
     bool m_showDihedral = false;
-
     bool m_showCutPoints = true;
     bool m_showCutLines = true;
-    bool m_showCutPlanes = true;
 
     glm::mat4 m_viewMatrix;
     glm::mat4 m_projectionMatrix;
+
+    GLuint m_mainShader = 0;
+    GLuint m_planeShader = 0;
+
+    GLuint m_axesVAO = 0, m_axesVBO = 0;
+    GLuint m_dihedralVAO = 0, m_dihedralVBO = 0;
+    GLuint m_pointVAO = 0, m_pointVBO = 0;
 };
