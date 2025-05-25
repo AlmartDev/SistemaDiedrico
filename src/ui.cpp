@@ -6,7 +6,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.8.1"
+#define PROGRAM_VERSION "0.8.2"
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -954,7 +954,7 @@ void UI::DrawDihedralViewport(App& app) {
             }
         }
 
-        if (y1_r1 * y2_r1 <= 0) {  // Check if line crosses ground level
+        if (y1_r1 * y2_r1 <= 0) { 
             float t = -y1_r1 / (y2_r1 - y1_r1);
             float x_ground = x1 + t * (x2 - x1);
             float y_r2_ground = y1_r2 + t * (y2_r2 - y1_r2);
@@ -973,6 +973,32 @@ void UI::DrawDihedralViewport(App& app) {
             if (sceneData.settings.showCutLines) {
                 drawList->AddCircleFilled(groundPoint, 3.0f, IM_COL32(255, 0, 0, 255));
                 drawList->AddLine(r1_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f);
+            }
+        }
+
+        if (y1_r2 * y2_r1 <= 0 && y1_r1 * y2_r2 <= 0) { 
+            float t1 = -y1_r2 / (y2_r2 - y1_r2);
+            float x_ground1 = x1 + t1 * (x2 - x1);
+            float y_r1_ground1 = y1_r1 + t1 * (y2_r1 - y1_r1);
+            
+            ImVec2 groundPointR2(
+                viewportCenter.x + x_ground1 * scale,
+                viewportCenter.y - y_r1_ground1 * scale
+            );
+
+            float t2 = -y1_r1 / (y2_r1 - y1_r1);
+            float x_ground2 = x1 + t2 * (x2 - x1);
+            float y_r2_ground2 = y1_r2 + t2 * (y2_r2 - y1_r2);
+            
+            ImVec2 groundPointR1(
+                viewportCenter.x + x_ground2 * scale,
+                viewportCenter.y - y_r2_ground2 * scale
+            );
+
+            if (sceneData.settings.showCutLines) {
+                drawList->AddCircleFilled(groundPointR2, 3.0f, IM_COL32(255, 0, 0, 255));
+                drawList->AddCircleFilled(groundPointR1, 3.0f, IM_COL32(255, 0, 0, 255));
+                drawList->AddLine(groundPointR2, groundPointR1, IM_COL32(100, 100, 100, 128), 1.0f);
             }
         }
     }
