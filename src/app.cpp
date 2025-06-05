@@ -96,13 +96,30 @@ void App::HandleInput() {
         float deltaX = static_cast<float>(mouseX) - m_lastMouseX;
         float deltaY = static_cast<float>(mouseY) - m_lastMouseY;
         
+        if (m_sceneData.settings.invertMouse[0])
+            deltaX = -deltaX; 
+        if (m_sceneData.settings.invertMouse[1]) 
+            deltaY = -deltaY; 
+
         m_camera.ProcessMouseMovement(deltaX, deltaY);
         
         m_lastMouseX = static_cast<float>(mouseX);
+
         m_lastMouseY = static_cast<float>(mouseY);
     } else {
         m_isMousePressed = false;
     }
+
+    /* TODO
+    if (glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || 
+        glfwGetKey(m_window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) {
+        if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS) {
+            SaveProject("project.json");
+        }
+        if (glfwGetKey(m_window, GLFW_KEY_O) == GLFW_PRESS) {
+            LoadProject("project.json");
+        }
+    }*/
 
     if (m_scrollY != 0) {
         m_camera.SetDistance(m_camera.GetDistance() - static_cast<float>(m_scrollY) * .3f);
@@ -158,6 +175,25 @@ void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
     m_renderer.DrawLines(linePositions, lineColors, m_sceneData.settings.lineThickness, m_camera);
     m_renderer.DrawPlanes(planePositions, planeColors, planeExpand, m_sceneData.settings.planeOpacity);
 }
+
+#ifndef __EMSCRIPTEN__ // no saving on web for now
+bool App::SaveProject(const std::string& filename) {
+    JsonHandler tempHandler(filename);
+    return tempHandler.SaveProject(m_sceneData);
+}
+
+bool App::LoadProject(const std::string& filename) {
+    JsonHandler tempHandler(filename);
+    if (!tempHandler.LoadProject(m_sceneData)) {
+        return false;
+    }
+    
+    // Reset camera to default position after loading
+    m_camera.ResetPosition();
+    
+    return true;
+}
+#endif
 
 void App::DeletePoint(SceneData::Point& point) { // this isnt good
     point.hidden = true;

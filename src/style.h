@@ -10,7 +10,7 @@ inline void SetCustomStyle() { // Set custom ImGui style
 	style.Alpha = 1.0f;
 	style.DisabledAlpha = 0.5f;
 	style.WindowPadding = ImVec2(13.0f, 10.0f);
-	style.WindowRounding = 0.0f;
+	style.WindowRounding = 8.0f;
 	style.WindowBorderSize = 1.0f;
 	style.WindowMinSize = ImVec2(32.0f, 32.0f);
 	style.WindowTitleAlign = ImVec2(0.5f, 0.5f);

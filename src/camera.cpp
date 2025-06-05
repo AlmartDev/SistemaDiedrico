@@ -2,7 +2,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 Camera::Camera(float distance) : m_distance(distance) {
-    UpdatePosition();
+    ResetPosition();
 }
 
 glm::vec3 Camera::GetPosition() const {
@@ -33,6 +33,12 @@ void Camera::SetDistance(float distance) {
 
 float Camera::GetDistance() const {
     return m_distance;
+}
+
+void Camera::ResetPosition() {
+    m_yaw = 135.0f;   // Reset yaw to initial value
+    m_pitch = 25.0f;  // Reset pitch to initial value
+    UpdatePosition();
 }
 
 void Camera::UpdatePosition() {

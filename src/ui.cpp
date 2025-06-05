@@ -6,7 +6,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.8.2"
+#define PROGRAM_VERSION "0.9.1 UNTESTED"
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -58,40 +58,99 @@ void UI::DrawMenuBar(App& app) {
     auto& sceneData = app.GetSceneData();
     int width = app.GetWindowWidth();
     int height = app.GetWindowHeight();
-    
-#ifndef __EMSCRIPTEN__
+
+#ifndef __EMSCRIPTEN__ // TODO: add this to Emscripten?
+    // Popup open flags
+    static bool openSavePopup = false;
+    static bool openLoadPopup = false;
+
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            ImGui::MenuItem("Save*", nullptr, false);
-            ImGui::MenuItem("Save As*", nullptr, false);
-            ImGui::MenuItem("Load*", nullptr, false);
+            if (ImGui::MenuItem("Save")) {
+                openSavePopup = true;
+            }
+
+            if (ImGui::MenuItem("Load")) {
+                openLoadPopup = true;
+            }
+
             ImGui::EndMenu();
         }
-        
+
         if (ImGui::BeginMenu("App")) {
             if (ImGui::MenuItem("Exit")) {
                 glfwSetWindowShouldClose(app.GetWindow(), true);
             }
             ImGui::EndMenu();
         }
-        
+
         if (ImGui::BeginMenu("About")) {
             ImGui::Text("Version %s", PROGRAM_VERSION);
             ImGui::Text("Made by Alonso Martínez");
             ImGui::Text("@almartdev on GitHub");
             ImGui::EndMenu();
         }
-        
+
         ImGui::EndMainMenuBar();
     }
+
+    // Trigger popups *after* menu bar
+    if (openSavePopup) {
+        ImGui::OpenPopup("Save Project");
+        openSavePopup = false;
+    }
+
+    if (openLoadPopup) {
+        ImGui::OpenPopup("Load Project");
+        openLoadPopup = false;
+    }
+
+    // Save Project Modal
+    if (ImGui::BeginPopupModal("Save Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        static char filename[256] = "project.json";
+        ImGui::InputText("Filename", filename, sizeof(filename));
+
+        if (ImGui::Button("Save")) {
+            if (app.SaveProject(filename)) {
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
+    // Load Project Modal
+    if (ImGui::BeginPopupModal("Load Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        static char filename[256] = "project.json";
+        ImGui::InputText("Filename", filename, sizeof(filename));
+
+        if (ImGui::Button("Load")) {
+            if (app.LoadProject(filename)) {
+                ImGui::CloseCurrentPopup();
+            }
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
 #else
     if (sceneData.settings.showWelcomeWindow) {
         // it has to be exacly in the middle of the screen
         ImGui::SetNextWindowPos(ImVec2(width / 2 - 150, height / 2 - 75), ImGuiCond_Always);
-        
-        if (ImGui::Begin("README!", &sceneData.settings.showWelcomeWindow, ImGuiWindowFlags_NoMove 
-            | ImGuiWindowFlags_AlwaysAutoResize
-            | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize)) {
+
+        if (ImGui::Begin("README!", &sceneData.settings.showWelcomeWindow,
+                         ImGuiWindowFlags_NoMove |
+                         ImGuiWindowFlags_AlwaysAutoResize |
+                         ImGuiWindowFlags_NoCollapse |
+                         ImGuiWindowFlags_NoResize)) {
             ImGui::Text("Welcome to the Dihedral System App!");
             ImGui::Text("IMPORTANT: This app is still in early development.");
             ImGui::Separator();
@@ -103,6 +162,7 @@ void UI::DrawMenuBar(App& app) {
     }
 #endif
 }
+
 
 void UI::DrawSettingsWindow(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -133,6 +193,11 @@ void UI::DrawSettingsWindow(App& app) {
     ImGui::DragFloat2("Offset (X, Y)", sceneData.settings.offset, 0.3f);
 
     ImGui::Checkbox("Enable VSync", &sceneData.settings.VSync);
+    ImGui::SameLine();
+
+    ImGui::Checkbox("Invert MouseX", &sceneData.settings.invertMouse[0]);
+    ImGui::SameLine();
+    ImGui::Checkbox("Invert MouseY", &sceneData.settings.invertMouse[1]);
 
     /*ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)", 
                 camera.GetPosition().x, 
@@ -169,7 +234,7 @@ void UI::DrawPointsTab(App& app) {
             ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
         } 
         else {
-            sceneData.points.push_back({name, {pointCoords[0], pointCoords[1], pointCoords[2]}});
+            sceneData.points.push_back({name, {pointCoords[0], pointCoords[1], pointCoords[2]}, false, true});
             pointName[0] = '\0';
             memset(pointCoords, 0, sizeof(pointCoords));
         }
@@ -375,8 +440,13 @@ void UI::DrawLinesTab(App& app) {
             ImGui::TableSetColumnIndex(4);
             if (ImGui::Button("X")) {
                 sceneData.lines.erase(sceneData.lines.begin() + i);
-                app.DeletePoint(sceneData.points[line.point1index]);
-                app.DeletePoint(sceneData.points[line.point2index]);
+                if (!sceneData.points[line.point1index].userCreated) {
+                    app.DeletePoint(sceneData.points[line.point1index]);
+                }
+                if (!sceneData.points[line.point2index].userCreated) {
+                    app.DeletePoint(sceneData.points[line.point2index]);
+                }
+                
                 ImGui::PopID();
                 --i; // Re-adjust index
                 continue;
@@ -551,9 +621,15 @@ void UI::DrawPlanesTab(App& app) {
             ImGui::TableSetColumnIndex(4);
             if (ImGui::Button("X")) {
                 sceneData.planes.erase(sceneData.planes.begin() + i);
-                app.DeletePoint(sceneData.points[plane.point1index]);
-                app.DeletePoint(sceneData.points[plane.point2index]);
-                app.DeletePoint(sceneData.points[plane.point3index]);
+                if (!sceneData.points[plane.point1index].userCreated) {
+                    app.DeletePoint(sceneData.points[plane.point1index]);
+                }
+                if (!sceneData.points[plane.point2index].userCreated) {
+                    app.DeletePoint(sceneData.points[plane.point2index]);
+                }
+                if (!sceneData.points[plane.point3index].userCreated) {
+                    app.DeletePoint(sceneData.points[plane.point3index]);
+                }
                 ImGui::PopID();
                 --i; // Re-adjust index
                 continue;
@@ -949,7 +1025,7 @@ void UI::DrawDihedralViewport(App& app) {
             );
 
             if (sceneData.settings.showCutLines) {
-                drawList->AddCircleFilled(groundPoint, 3.0f, IM_COL32(255, 0, 0, 255));
+                drawList->AddCircleFilled(groundPoint, 3.0f, IM_COL32(0, 0, 255, 255));
                 drawList->AddLine(r2_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f);
             }
         }

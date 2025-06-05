@@ -42,6 +42,9 @@ public:
     
     static double m_scrollY;
     
+    bool SaveProject(const std::string& filename);
+    bool LoadProject(const std::string& filename);
+
     void DeletePoint(SceneData::Point& point);
 private:
     // ui class

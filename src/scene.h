@@ -11,6 +11,7 @@ struct SceneData {
         std::string name;
         float coords[3];
         bool hidden = false;
+        bool userCreated = false;
         float color[3] = {1.0f, 0.5f, 0.0f}; // orange
     };
 
@@ -46,7 +47,8 @@ struct SceneData {
         bool expandPlanes = false;
 
         float mouseSensitivity = 0.2f;
-        float cameraDistance = 5.5f;
+        bool invertMouse[2] = {false, false}; 
+        float cameraDistance;
         float fontSize = 14.0f;
 
         float pointSize = 8.0f;
