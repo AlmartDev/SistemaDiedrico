@@ -32,6 +32,10 @@ public:
     Camera& GetCamera() { return m_camera; }
     Renderer& GetRenderer() { return m_renderer; }
 
+    void SetSceneData(const SceneData& sceneData) { // in case we open a new project we get rid of the old one
+        m_sceneData = sceneData;
+    }
+
     void HandleInput();
     void PrepareRenderData();
 
@@ -41,9 +45,6 @@ public:
     JsonHandler& GetJsonHandler() { return m_jsonHandler; }
     
     static double m_scrollY;
-    
-    bool SaveProject(const std::string& filename);
-    bool LoadProject(const std::string& filename);
 
     void DeletePoint(SceneData::Point& point);
 private:

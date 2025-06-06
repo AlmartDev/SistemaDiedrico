@@ -15,7 +15,7 @@
 
 double App::m_scrollY = 0.0;
 
-App::App() : m_window(nullptr), m_jsonHandler("./assets/presets.json") {
+App::App() : m_window(nullptr) {
     m_ui = new UI();
 }
 
@@ -71,11 +71,6 @@ bool App::Initialize() {
     if (!m_renderer.Initialize()) {
         std::cerr << "Failed to initialize renderer\n";
         return false;
-    }
-
-    m_jsonLoaded = m_jsonHandler.LoadJson();
-    if (!m_jsonLoaded) {
-        std::cerr << "Failed to load JSON file\n";
     }
 
     return true;
@@ -175,25 +170,6 @@ void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
     m_renderer.DrawLines(linePositions, lineColors, m_sceneData.settings.lineThickness, m_camera);
     m_renderer.DrawPlanes(planePositions, planeColors, planeExpand, m_sceneData.settings.planeOpacity);
 }
-
-#ifndef __EMSCRIPTEN__ // no saving on web for now
-bool App::SaveProject(const std::string& filename) {
-    JsonHandler tempHandler(filename);
-    return tempHandler.SaveProject(m_sceneData);
-}
-
-bool App::LoadProject(const std::string& filename) {
-    JsonHandler tempHandler(filename);
-    if (!tempHandler.LoadProject(m_sceneData)) {
-        return false;
-    }
-    
-    // Reset camera to default position after loading
-    m_camera.ResetPosition();
-    
-    return true;
-}
-#endif
 
 void App::DeletePoint(SceneData::Point& point) { // this isnt good
     point.hidden = true;

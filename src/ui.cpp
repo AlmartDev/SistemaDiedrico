@@ -6,7 +6,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.9.1 UNTESTED"
+#define PROGRAM_VERSION "0.10"
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -59,21 +59,17 @@ void UI::DrawMenuBar(App& app) {
     int width = app.GetWindowWidth();
     int height = app.GetWindowHeight();
 
-#ifndef __EMSCRIPTEN__ // TODO: add this to Emscripten?
-    // Popup open flags
-    static bool openSavePopup = false;
-    static bool openLoadPopup = false;
-
+#ifndef __EMSCRIPTEN__ 
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("Save")) {
-                openSavePopup = true;
+            if (ImGui::MenuItem("Open**", "Ctrl+O")) {
+                std::string path = app.GetJsonHandler().OpenFileDialog();
+                app.GetJsonHandler().Load(path);
             }
-
-            if (ImGui::MenuItem("Load")) {
-                openLoadPopup = true;
+            if (ImGui::MenuItem("Save**", "Ctrl+S")) {
+                std::string path = app.GetJsonHandler().SaveFileDialog();
+                app.GetJsonHandler().Save(path, app.GetSceneData());
             }
-
             ImGui::EndMenu();
         }
 
@@ -93,54 +89,6 @@ void UI::DrawMenuBar(App& app) {
 
         ImGui::EndMainMenuBar();
     }
-
-    // Trigger popups *after* menu bar
-    if (openSavePopup) {
-        ImGui::OpenPopup("Save Project");
-        openSavePopup = false;
-    }
-
-    if (openLoadPopup) {
-        ImGui::OpenPopup("Load Project");
-        openLoadPopup = false;
-    }
-
-    // Save Project Modal
-    if (ImGui::BeginPopupModal("Save Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        static char filename[256] = "project.json";
-        ImGui::InputText("Filename", filename, sizeof(filename));
-
-        if (ImGui::Button("Save")) {
-            if (app.SaveProject(filename)) {
-                ImGui::CloseCurrentPopup();
-            }
-        }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
-
-    // Load Project Modal
-    if (ImGui::BeginPopupModal("Load Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        static char filename[256] = "project.json";
-        ImGui::InputText("Filename", filename, sizeof(filename));
-
-        if (ImGui::Button("Load")) {
-            if (app.LoadProject(filename)) {
-                ImGui::CloseCurrentPopup();
-            }
-        }
-
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel")) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
-    }
-
 #else
     if (sceneData.settings.showWelcomeWindow) {
         // it has to be exacly in the middle of the screen
@@ -650,14 +598,15 @@ void UI::DrawPresetWindow(App& app) {
     int height = app.GetWindowHeight();
 
     auto& jsonHandler = app.GetJsonHandler();
-    bool m_jsonLoaded = jsonHandler.LoadJson();
+    std::string presetsPath = "./assets/presets.json";
+    nlohmann::json jsonContent = jsonHandler.LoadPresets(presetsPath);
 
     // big mistake
     //ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 250, 450), ImGuiWindowFLags_);
     ImGui::Begin("Presets", nullptr);
     ImGui::Text("Select a preset to load");
 
-    if (!m_jsonLoaded) {
+    if (jsonContent.is_null()) {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Failed to load presets!");
         ImGui::End();
         return;
@@ -672,7 +621,7 @@ void UI::DrawPresetWindow(App& app) {
         ImGui::Text("Available Point Presets:");
         ImGui::Separator();
         
-        auto pointPresets = jsonHandler.GetPointPresets();
+        auto pointPresets = jsonHandler.GetPointPresets(jsonContent);
         if (pointPresets.empty()) {
             ImGui::Text("No point presets found");
         } else {
@@ -710,7 +659,7 @@ void UI::DrawPresetWindow(App& app) {
         ImGui::Text("Available Line Presets:");
         ImGui::Separator();
         
-        auto linePresets = jsonHandler.GetLinePresets();
+        auto linePresets = jsonHandler.GetLinePresets(jsonContent);
         if (linePresets.empty()) {
             ImGui::Text("No line presets found");
         } else {
@@ -764,7 +713,7 @@ void UI::DrawPresetWindow(App& app) {
         ImGui::Text("Available Plane Presets:");
         ImGui::Separator();
         
-        auto planePresets = jsonHandler.GetPlanePresets();
+        auto planePresets = jsonHandler.GetPlanePresets(jsonContent);
         if (planePresets.empty()) {
             ImGui::Text("No plane presets found");
         } else {
