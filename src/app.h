@@ -46,6 +46,8 @@ public:
     
     static double m_scrollY;
 
+    void LoadProject(std::vector<nlohmann::json> data);
+    
     void DeletePoint(SceneData::Point& point);
 private:
     // ui class

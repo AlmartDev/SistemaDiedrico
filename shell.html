@@ -16,17 +16,24 @@
 <body>
     <canvas id="canvas"></canvas>
     <script>
-    var Module = {
-        canvas: document.getElementById('canvas'),
-        onRuntimeInitialized: function() {
-            console.log('WASM loaded');
-            // Force canvas size
-            var canvas = Module.canvas;
-            canvas.width = canvas.clientWidth * window.devicePixelRatio;
-            canvas.height = canvas.clientHeight * window.devicePixelRatio;
-            
-        }
-    };
+        Module.onRuntimeInitialized = function() {
+            window.handleFileContent = function(content) {
+                Module.ccall('handle_file_content', null, ['string'], [content]);
+            };
+        };
+    </script>
+    <script>
+        var Module = {
+            canvas: document.getElementById('canvas'),
+            onRuntimeInitialized: function() {
+                console.log('WASM loaded');
+                // Force canvas size
+                var canvas = Module.canvas;
+                canvas.width = canvas.clientWidth * window.devicePixelRatio;
+                canvas.height = canvas.clientHeight * window.devicePixelRatio;
+                
+            }
+        };
     </script>
     <script>
         document.getElementById('canvas').addEventListener('contextmenu', function(e) {

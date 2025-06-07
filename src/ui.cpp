@@ -6,7 +6,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.10"
+#define PROGRAM_VERSION "0.10.3"
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -59,13 +59,17 @@ void UI::DrawMenuBar(App& app) {
     int width = app.GetWindowWidth();
     int height = app.GetWindowHeight();
 
-#ifndef __EMSCRIPTEN__ 
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("Open**", "Ctrl+O")) {
-                std::string path = app.GetJsonHandler().OpenFileDialog();
-                app.GetJsonHandler().Load(path);
-            }
+                if (ImGui::MenuItem("Open**", "Ctrl+O")) {
+                
+                    std::string path = app.GetJsonHandler().OpenFileDialog();
+                    std::vector<nlohmann::json> data = app.GetJsonHandler().Load(path);
+                    if (!data.empty()) {
+                        app.LoadProject(data);
+                    }
+
+                }
             if (ImGui::MenuItem("Save**", "Ctrl+S")) {
                 std::string path = app.GetJsonHandler().SaveFileDialog();
                 app.GetJsonHandler().Save(path, app.GetSceneData());
@@ -73,12 +77,14 @@ void UI::DrawMenuBar(App& app) {
             ImGui::EndMenu();
         }
 
+        #ifndef __EMSCRIPTEN__
         if (ImGui::BeginMenu("App")) {
             if (ImGui::MenuItem("Exit")) {
                 glfwSetWindowShouldClose(app.GetWindow(), true);
             }
             ImGui::EndMenu();
         }
+        #endif
 
         if (ImGui::BeginMenu("About")) {
             ImGui::Text("Version %s", PROGRAM_VERSION);
@@ -89,7 +95,8 @@ void UI::DrawMenuBar(App& app) {
 
         ImGui::EndMainMenuBar();
     }
-#else
+
+#ifdef __EMSCRIPTEN__
     if (sceneData.settings.showWelcomeWindow) {
         // it has to be exacly in the middle of the screen
         ImGui::SetNextWindowPos(ImVec2(width / 2 - 150, height / 2 - 75), ImGuiCond_Always);

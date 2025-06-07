@@ -105,16 +105,23 @@ void App::HandleInput() {
         m_isMousePressed = false;
     }
 
-    /* TODO
     if (glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || 
         glfwGetKey(m_window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) {
+
+        #ifndef __EMSCRIPTEN__ // on web builds this saves the file every frame, not good
         if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS) {
-            SaveProject("project.json");
+            std::string path = m_jsonHandler.SaveFileDialog();
+            m_jsonHandler.Save(path, m_sceneData);
         }
         if (glfwGetKey(m_window, GLFW_KEY_O) == GLFW_PRESS) {
-            LoadProject("project.json");
+            std::string path = m_jsonHandler.OpenFileDialog();
+            std::vector<nlohmann::json> data = m_jsonHandler.Load(path);
+            if (!data.empty()) {
+                LoadProject(data);
+            }
         }
-    }*/
+        #endif
+    }
 
     if (m_scrollY != 0) {
         m_camera.SetDistance(m_camera.GetDistance() - static_cast<float>(m_scrollY) * .3f);
@@ -123,6 +130,19 @@ void App::HandleInput() {
 
     if (glfwGetKey(m_window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(m_window, true);
+    }
+}
+
+void App::LoadProject(std::vector<nlohmann::json> data){
+    if (!data.empty()) {
+        for (const auto& point : data[0]) {
+            SceneData::Point p;
+            p.name = point["name"].get<std::string>();
+            p.coords[0] = point["coords"]["d"].get<float>();
+            p.coords[1] = point["coords"]["a"].get<float>();
+            p.coords[2] = point["coords"]["c"].get<float>();
+            m_sceneData.points.push_back(p);
+        }
     }
 }
 
@@ -226,8 +246,7 @@ void App::Frame() {
     glfwGetFramebufferSize(m_window, &width, &height);
     m_renderer.UpdateCamera(m_camera, width, height);
 
-    glViewport(m_sceneData.settings.offset[0], m_sceneData.settings.offset[1], 
-        m_sceneData.settings.offset[0] + width, m_sceneData.settings.offset[1] + height);
+    glViewport(m_sceneData.settings.offset[0], m_sceneData.settings.offset[1], width, height);
 
     m_ui->DrawUI(*this);
 

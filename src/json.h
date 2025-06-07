@@ -1,121 +1,128 @@
-#pragma once
-
-#include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
-#include <vector>
+#include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
+
 #include "scene.h"
 
 #ifdef __EMSCRIPTEN__
-    #include <emscripten.h>
+    #include <emscripten/bind.h>
+    #include <emscripten/emscripten.h>
+    #include <emscripten/fetch.h>
+    #include <emscripten/html5.h>
+    #include <emscripten/val.h>
+    #include <stdio.h>
+    #include <sys/stat.h>
 #else
     #include <windows.h>
 #endif
 
 class JsonHandler {
-public:    
-    void Load(std::string& filename) { // load any json file and return its content
+public:
+#ifdef __EMSCRIPTEN__
+    std::string loadedContent;
+    emscripten::val FS = emscripten::val::global("FS");
+    std::string loadedPath = "/loaded.json";
+    bool fileLoaded = false;
+    std::function<void()> onFileLoadedCallback;
+#endif
+
+    std::vector<nlohmann::json> Load(std::string &filename) {
         nlohmann::json content;
 
+#ifdef __EMSCRIPTEN__ // this crashes on web builds, so we use a different method
+        if (!fileLoaded) {
+            std::cout << "No file has been loaded yet or loading is in progress" << std::endl;
+            return {};
+        }
+
+        FILE *file = fopen(filename.c_str(), "r");
+
+        if (!file) {
+            std::cout << "Failed to open file: " << filename << std::endl;
+            return {};
+        }
+
+        fseek(file, 0, SEEK_END);
+        size_t size = ftell(file);
+        rewind(file);
+
+        std::string buffer(size, '\0');
+        fread(&buffer[0], 1, size, file);
+        fclose(file);
+
+        try {
+            content = nlohmann::json::parse(buffer);
+        } catch (const nlohmann::json::parse_error &e) {
+            std::cout << "JSON parse error: " << e.what() << std::endl;
+            return {};
+        }
+
+        std::cout << "Loaded JSON content: " << filename << std::endl;
+#else
         std::ifstream file(filename);
+
         if (!file.is_open()) {
             std::cerr << "Failed to open file: " << filename << std::endl;
+            return {};
         }
 
         try {
             file >> content;
-        } catch (const nlohmann::json::parse_error& e) {
+        } catch (const nlohmann::json::parse_error &e) {
             std::cerr << "JSON parse error: " << e.what() << std::endl;
         }
-        file.close();
 
-        SceneData sceneData;
-        
+        file.close();
+#endif
+        std::vector<nlohmann::json> points, lines, planes;
+
         if (content.contains("points")) {
-            for (const auto& pointJson : content["points"]) {
-                SceneData::Point point;
-                point.name = pointJson.value("name", "");
-                point.coords[0] = pointJson["coords"].value("d", 0.0f);
-                point.coords[1] = pointJson["coords"].value("a", 0.0f);
-                point.coords[2] = pointJson["coords"].value("c", 0.0f);
-                point.hidden = pointJson.value("hidden", false);
-                point.userCreated = pointJson.value("userCreated", false);
-                if (pointJson.contains("color")) {
-                    const auto& color = pointJson["color"];
-                    if (color.is_array() && color.size() == 3) {
-                        point.color[0] = color[0].get<float>();
-                        point.color[1] = color[1].get<float>();
-                        point.color[2] = color[2].get<float>();
-                    }
-                }
-                sceneData.points.push_back(point);
-            }
-        }
+            for (const auto &item : content["points"]) points.push_back(item);
+        } else
+            points.push_back(content);
+
         if (content.contains("lines")) {
-            for (const auto& lineJson : content["lines"]) {
-                SceneData::Line line;
-                line.name = lineJson.value("name", "");
-                line.point1index = lineJson.value("point1", -1);
-                line.point2index = lineJson.value("point2", -1);
-                if (lineJson.contains("color")) {
-                    const auto& color = lineJson["color"];
-                    if (color.is_array() && color.size() == 3) {
-                        line.color[0] = color[0].get<float>();
-                        line.color[1] = color[1].get<float>();
-                        line.color[2] = color[2].get<float>();
-                    }
-                }
-                line.showVisibility = lineJson.value("showVisibility", false);
-                sceneData.lines.push_back(line);
-            }
-        }
+            for (const auto &item : content["lines"]) lines.push_back(item);
+        } else
+            lines.push_back(nlohmann::json::array());
+
         if (content.contains("planes")) {
-            for (const auto& planeJson : content["planes"]) {
-                SceneData::Plane plane;
-                plane.name = planeJson.value("name", "");
-                plane.point1index = planeJson.value("point1", -1);
-                plane.point2index = planeJson.value("point2", -1);
-                plane.point3index = planeJson.value("point3", -1);
-                if (planeJson.contains("color")) {
-                    const auto& color = planeJson["color"];
-                    if (color.is_array() && color.size() == 3) {
-                        plane.color[0] = color[0].get<float>();
-                        plane.color[1] = color[1].get<float>();
-                        plane.color[2] = color[2].get<float>();
-                    }
-                }
-                plane.expand = planeJson.value("expand", false);
-                sceneData.planes.push_back(plane);
-            }
-        }
+            for (const auto &item : content["planes"]) planes.push_back(item);
+        } else
+            planes.push_back(nlohmann::json::array());
+
+        return {points, lines, planes};
     }
 
-    nlohmann::json LoadPresets(const std::string& filename) {
+    // LOAD ---------------------------------------------------------------
+
+    nlohmann::json LoadPresets(const std::string &filename) {
         nlohmann::json content;
 
         std::ifstream file(filename);
+
         if (!file.is_open()) {
             std::cerr << "Failed to open file: " << filename << std::endl;
         }
 
         try {
             file >> content;
-        } catch (const nlohmann::json::parse_error& e) {
+        } catch (const nlohmann::json::parse_error &e) {
             std::cerr << "JSON parse error: " << e.what() << std::endl;
         }
+
         file.close();
 
         return content;
     }
 
-    void Save(const std::string& filename, SceneData& sceneData) {
-        std::ofstream file(filename);
-        if (!file.is_open()) {
-            std::cerr << "Failed to open file for writing: " << filename << std::endl;
-        }
+    // SAVE --------------------------------------------------------------
 
+    void Save(const std::string& filename, SceneData& sceneData) {
         nlohmann::json content;
+
         content["points"] = nlohmann::json::array();
         for (const auto& point : sceneData.points) {
             nlohmann::json pointJson;
@@ -126,62 +133,90 @@ public:
             pointJson["color"] = {point.color[0], point.color[1], point.color[2]};
             content["points"].push_back(pointJson);
         }
-        content["lines"] = nlohmann::json::array();
-        for (const auto& line : sceneData.lines) {
-            nlohmann::json lineJson;
-            lineJson["name"] = line.name;
-            lineJson["point1"] = line.point1index;
-            lineJson["point2"] = line.point2index;
-            lineJson["color"] = {line.color[0], line.color[1], line.color[2]};
-            lineJson["showVisibility"] = line.showVisibility;
-            content["lines"].push_back(lineJson);
-        }
-        content["planes"] = nlohmann::json::array();
-        for (const auto& plane : sceneData.planes) {
-            nlohmann::json planeJson;
-            planeJson["name"] = plane.name;
-            planeJson["point1"] = plane.point1index;
-            planeJson["point2"] = plane.point2index;
-            planeJson["point3"] = plane.point3index;
-            planeJson["color"] = {plane.color[0], plane.color[1], plane.color[2]};
-            planeJson["expand"] = plane.expand;
-            content["planes"].push_back(planeJson);
+
+        std::string jsonStr = content.dump(4);
+
+#ifdef __EMSCRIPTEN__
+        // For web builds, we'll use the filename from the dialog
+        EM_ASM_({
+            const content = UTF8ToString($0);
+            const filename = UTF8ToString($1) || 'scene.json';
+            
+            // Create a Blob with the JSON data
+            const blob = new Blob([content], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            
+            // Create a download link and trigger click
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }, jsonStr.c_str(), filename.c_str());
+#else
+        std::ofstream file(filename);
+        if (!file.is_open()) {
+            std::cerr << "Failed to open file for writing: " << filename << std::endl;
+            return;
         }
 
-        // write to file
         try {
-            file << content.dump(4); // pretty print with 4 spaces
+            file << jsonStr;
         } catch (const nlohmann::json::type_error& e) {
             std::cerr << "JSON type error: " << e.what() << std::endl;
         }
         file.close();
+#endif
     }
 
-    // TODO: file dialog
     std::string OpenFileDialog() {
+#ifdef __EMSCRIPTEN__
+        fileLoaded = false;
         
-#ifdef __EMSCRIPTEN__ // browser dialog
+        EM_ASM({
+            if (!document.getElementById('fileLoader')) {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.id = 'fileLoader';
+                input.accept = '.json';
+                input.style.display = 'none';
+                input.onchange = function(e) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = function() {
+                        const content = reader.result;
+                        Module.ccall('handleFileLoad', 'void', ['string'], [content]);
+                    };
+                    reader.readAsText(file);
+                };
+                document.body.appendChild(input);
+            }
+            document.getElementById('fileLoader').click();
+        });
 
-#elif _WIN32 // widndows api
-     OPENFILENAMEA ofn;
-        CHAR szFile[MAX_PATH] = { 0 };
+        return loadedPath;
+#elif _WIN32
+        OPENFILENAMEA ofn;
+        CHAR szFile[MAX_PATH] = {0};
         CHAR currentDir[MAX_PATH];
-
-        // Get current directory
         GetCurrentDirectoryA(MAX_PATH, currentDir);
+        const char *filter =
+            "JSON Files (*.json)\0*.json\0All Files (*.*)\0*.*\0";
 
-        // Set up filter (must use double null-termination)
-        const char* filter = "JSON Files (*.json)\0*.json\0All Files (*.*)\0*.*\0";
-
-        // Initialize OPENFILENAME
         ZeroMemory(&ofn, sizeof(ofn));
         ofn.lStructSize = sizeof(ofn);
         ofn.hwndOwner = NULL;
         ofn.lpstrFile = szFile;
         ofn.nMaxFile = sizeof(szFile);
         ofn.lpstrFilter = filter;
-        ofn.nFilterIndex = 1; // Default to JSON filter
-        ofn.lpstrInitialDir = currentDir; // Start in current directory
+        ofn.nFilterIndex = 1;
+        ofn.lpstrInitialDir = currentDir;
         ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
 
         if (GetOpenFileNameA(&ofn)) {
@@ -193,20 +228,20 @@ public:
                 std::cerr << "File dialog error: " << err << std::endl;
             }
         }
-#else // imgui file dialog
-
-#endif
         return "";
+#else
+        return "";
+#endif
     }
 
-    std::string SaveFileDialog(const std::string& filter = "JSON files (*.json)\0*.json\0All files (*.*)\0*.*\0") {
-#ifdef __EMSCRIPTEN__ // browser dialog
 
-#elif _WIN32 // widndows api
+    std::string SaveFileDialog( const std::string &filter = "JSON files (*.json)\0*.json\0All files (*.*)\0*.*\0") {
+#ifdef __EMSCRIPTEN__  // emscriptem
+        // For web builds, we'll use the filename directly in the Save method
+        return "scene.json";
+#elif _WIN32
         OPENFILENAMEA ofn;
-        CHAR szFile[260] = { 0 };
-        
-        // Initialize OPENFILENAME
+        CHAR szFile[260] = {0};
         ZeroMemory(&ofn, sizeof(ofn));
         ofn.lStructSize = sizeof(ofn);
         ofn.hwndOwner = NULL;
@@ -217,44 +252,56 @@ public:
         ofn.lpstrFileTitle = NULL;
         ofn.nMaxFileTitle = 0;
         ofn.lpstrInitialDir = NULL;
-        ofn.lpstrDefExt = "json"; // Default extension
+        ofn.lpstrDefExt = "json";
         ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
-        
+
         if (GetSaveFileNameA(&ofn)) {
             return ofn.lpstrFile;
         }
-#else // imgui file dialog
-#endif
+
         return "";
+#else
+        return "";
+#endif
     }
 
-    std::vector<nlohmann::json> GetPointPresets(nlohmann::json& jsonData) {
+    std::vector<nlohmann::json> GetPointPresets(nlohmann::json &jsonData) {
         std::vector<nlohmann::json> presets;
-        if (jsonData.contains("presets") && jsonData["presets"].contains("points")) {
-            for (const auto& preset : jsonData["presets"]["points"]) {
+
+        if (jsonData.contains("presets") &&
+            jsonData["presets"].contains("points")) {
+            for (const auto &preset : jsonData["presets"]["points"]) {
                 presets.push_back(preset);
             }
         }
+
         return presets;
     }
 
-    std::vector<nlohmann::json> GetLinePresets(nlohmann::json& jsonData) {
+    std::vector<nlohmann::json> GetLinePresets(nlohmann::json &jsonData) {
         std::vector<nlohmann::json> presets;
-        if (jsonData.contains("presets") && jsonData["presets"].contains("lines")) {
-            for (const auto& preset : jsonData["presets"]["lines"]) {
+
+        if (jsonData.contains("presets") &&
+            jsonData["presets"].contains("lines")) {
+            for (const auto &preset : jsonData["presets"]["lines"]) {
                 presets.push_back(preset);
             }
         }
+
         return presets;
     }
 
-    std::vector<nlohmann::json> GetPlanePresets(nlohmann::json& jsonData) {
+    std::vector<nlohmann::json> GetPlanePresets(nlohmann::json &jsonData) {
         std::vector<nlohmann::json> presets;
-        if (jsonData.contains("presets") && jsonData["presets"].contains("planes")) {
-            for (const auto& preset : jsonData["presets"]["planes"]) {
+
+        if (jsonData.contains("presets") &&
+            jsonData["presets"].contains("planes")) {
+            for (const auto &preset : jsonData["presets"]["planes"]) {
                 presets.push_back(preset);
             }
         }
+
         return presets;
     }
 };
+

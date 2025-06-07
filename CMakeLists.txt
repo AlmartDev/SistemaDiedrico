@@ -66,8 +66,14 @@ if(BUILD_WEB)
         "SHELL:-sMAX_WEBGL_VERSION=2"
         "SHELL:-sASSERTIONS=1"
         "SHELL:-sGL_DEBUG=1"
+        "SHELL:-sALLOW_MEMORY_GROWTH=1"
+        "SHELL:-sDISABLE_EXCEPTION_CATCHING=0"
+        "SHELL:--bind"
         "SHELL:--preload-file ${ABSOLUTE_ASSETS_PATH}@/assets"
     )
+
+    
+
 else()
     # Copy assets folder to executable directory for native builds
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
