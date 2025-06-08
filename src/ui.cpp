@@ -61,16 +61,32 @@ void UI::DrawMenuBar(App& app) {
 
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-                if (ImGui::MenuItem("Open**", "Ctrl+O")) {
-                
+                if (ImGui::MenuItem("Open", "Ctrl+O")) {
+                #ifdef __EMSCRIPTEN__
+                    JsonHandler* handler = JsonHandlerInstance();
+
+                    std::string loadedFilePath = handler->OpenFileDialog(); // This now blocks until file is selected
+
+                    if (!loadedFilePath.empty()) {
+                        std::vector<nlohmann::json> result = handler->Load(loadedFilePath);
+
+                        // Do something with the loaded data
+                        if (!result.empty()) {
+                            // Example: print number of points
+                            std::cout << "Loaded " << result[0].size() << " points." << std::endl;
+                        }
+                    } else {
+                        std::cout << "No file selected or loading failed." << std::endl;
+                    }
+                #else
                     std::string path = app.GetJsonHandler().OpenFileDialog();
                     std::vector<nlohmann::json> data = app.GetJsonHandler().Load(path);
                     if (!data.empty()) {
                         app.LoadProject(data);
                     }
-
+                #endif
                 }
-            if (ImGui::MenuItem("Save**", "Ctrl+S")) {
+            if (ImGui::MenuItem("Save", "Ctrl+S")) {
                 std::string path = app.GetJsonHandler().SaveFileDialog();
                 app.GetJsonHandler().Save(path, app.GetSceneData());
             }

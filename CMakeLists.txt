@@ -56,6 +56,9 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 # Handle assets differently for web vs native builds
 if(BUILD_WEB)
     set(CMAKE_EXECUTABLE_SUFFIX ".html")
+
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sASYNCIFY ")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sASYNCIFY -sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']")
     
     # Embed assets directory for Emscripten
     get_filename_component(ABSOLUTE_ASSETS_PATH "${CMAKE_SOURCE_DIR}/assets" ABSOLUTE)
@@ -71,8 +74,6 @@ if(BUILD_WEB)
         "SHELL:--bind"
         "SHELL:--preload-file ${ABSOLUTE_ASSETS_PATH}@/assets"
     )
-
-    
 
 else()
     # Copy assets folder to executable directory for native builds

@@ -13,6 +13,31 @@
 #include <emscripten.h>
 #endif
 
+#ifdef __EMSCRIPTEN__
+JsonHandler* JsonHandlerInstance() {
+    static JsonHandler instance;
+    return &instance;
+}
+
+extern "C" {
+    void handleFileLoad(const char* content) {
+        JsonHandler* handler = JsonHandlerInstance();
+        handler->loadedContent = std::string(content);
+        handler->fileLoaded = true;
+
+        // CALL your logic here:
+        std::string path = handler->loadedPath;
+        std::ofstream file(path);
+        file << handler->loadedContent;
+        file.close();
+
+        // Now trigger loading (replace this with your app logic)
+        auto result = handler->Load(path);
+        std::cout << "Loaded " << result[0].size() << " points" << std::endl;
+    }
+}
+#endif
+
 double App::m_scrollY = 0.0;
 
 App::App() : m_window(nullptr) {

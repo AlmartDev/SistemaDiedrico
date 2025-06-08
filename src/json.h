@@ -177,30 +177,32 @@ public:
 
     std::string OpenFileDialog() {
 #ifdef __EMSCRIPTEN__
-        fileLoaded = false;
-        
-        EM_ASM({
-            if (!document.getElementById('fileLoader')) {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.id = 'fileLoader';
-                input.accept = '.json';
-                input.style.display = 'none';
-                input.onchange = function(e) {
-                    const file = e.target.files[0];
-                    const reader = new FileReader();
-                    reader.onload = function() {
-                        const content = reader.result;
-                        Module.ccall('handleFileLoad', 'void', ['string'], [content]);
-                    };
-                    reader.readAsText(file);
-                };
-                document.body.appendChild(input);
-            }
-            document.getElementById('fileLoader').click();
-        });
+    fileLoaded = false;
 
-        return loadedPath;
+    EM_ASM({
+        if (!document.getElementById('fileLoader')) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.id = 'fileLoader';
+            input.accept = '.json';
+            input.style.display = 'none';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = function() {
+                    const content = reader.result;
+                    Module().then(instance => {
+                        instance.ccall('handleFileLoad', null, ['string'], [content]);
+                    });
+                };
+                reader.readAsText(file);
+            };
+            document.body.appendChild(input);
+        }
+        document.getElementById('fileLoader').click();
+    });
+
+    return loadedPath; // This is now handled later, not immediately
 #elif _WIN32
         OPENFILENAMEA ofn;
         CHAR szFile[MAX_PATH] = {0};
@@ -305,3 +307,7 @@ public:
     }
 };
 
+#ifdef __EMSCRIPTEN__
+extern JsonHandler* JsonHandlerInstance();
+extern "C" void handleFileLoad(const char* content);
+#endif
