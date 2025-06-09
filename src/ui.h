@@ -8,6 +8,11 @@ class App;
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <imgui_internal.h>
+#include <string>
+
+#if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
+#include "ImGuiFileDialog.h"
+#endif
 
 class UI {
 public:
@@ -27,4 +32,8 @@ private:
     void DrawLinesTab(App& app);
     void DrawPlanesTab(App& app);
     void DrawDihedralViewport(App& app);
+
+    // File dialogs
+    void OpenFileDialog(App& app);
+    void SaveFileDialog(App& app);
 };

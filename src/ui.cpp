@@ -3,10 +3,16 @@
 
 #include <algorithm>
 #include <string>
+#include <string>
 
 #include "style.h"
 
 #define PROGRAM_VERSION "0.10.5"
+
+#if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
+    #include "ImGuiFileDialog.h"
+    #include "ImGuiFileDialogConfig.h"
+#endif
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -66,6 +72,27 @@ void OpenURL(const std::string& url) {
 #endif
 }
 
+// IMGUI DIALOGS -----------------------------------------
+void UI::OpenFileDialog(App& app) {
+#if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
+    // Set filters
+    const char* filters = "JSON files (*.json){.json},.*";
+    
+    // Open file dialog
+    ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", filters);
+#endif
+}
+
+void UI::SaveFileDialog(App& app) {
+#if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
+    // Set filters
+    const char* filters = "JSON files (*.json){.json},.*";
+    
+    // Open save file dialog
+    ImGuiFileDialog::Instance()->OpenDialog("SaveFileDlgKey", "Save File", filters);
+#endif
+}
+
 void UI::DrawMenuBar(App& app) {
     auto& sceneData = app.GetSceneData();
     int width = app.GetWindowWidth();
@@ -77,17 +104,23 @@ void UI::DrawMenuBar(App& app) {
                 #ifdef __EMSCRIPTEN__
                     JsonHandler* handler = JsonHandlerInstance();
                     handler->OpenFileDialog();
-                #else
+                #elif _WIN32
                     std::string path = app.GetJsonHandler().OpenFileDialog();
                     std::vector<nlohmann::json> data = app.GetJsonHandler().Load(path);
                     if (!data.empty()) {
                         app.LoadProject(data);
                     }
+                #else
+                    OpenFileDialog(app);
                 #endif
                 }
             if (ImGui::MenuItem("Save", "Ctrl+S")) {
+            #if defined(__EMSCRIPTEN__) || defined(_WIN32)
                 std::string path = app.GetJsonHandler().SaveFileDialog();
                 app.GetJsonHandler().Save(path, app.GetSceneData());
+            #else
+                SaveFileDialog(app);
+            #endif
             }
             ImGui::EndMenu();
         }
@@ -119,6 +152,33 @@ void UI::DrawMenuBar(App& app) {
 
         ImGui::EndMainMenuBar();
     }
+
+#if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
+    // Open file dialog
+    ImGui::SetNextWindowSize(ImVec2(900, 750), ImGuiCond_FirstUseEver);
+    if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey")) {
+        if (ImGuiFileDialog::Instance()->IsOk()) {
+            std::string filePath = ImGuiFileDialog::Instance()->GetFilePathName();
+            std::vector<nlohmann::json> data = app.GetJsonHandler().Load(filePath);
+            std::cout << "Loaded file: " << filePath << std::endl;
+            if (!data.empty()) {
+                app.LoadProject(data);
+            }
+        }
+        ImGuiFileDialog::Instance()->Close();
+    }
+
+    // Save file dialog
+    ImGui::SetNextWindowSize(ImVec2(900, 750), ImGuiCond_FirstUseEver);
+    if (ImGuiFileDialog::Instance()->Display("SaveFileDlgKey")) {
+        if (ImGuiFileDialog::Instance()->IsOk()) {
+            std::string filePath = ImGuiFileDialog::Instance()->GetFilePathName();
+            std::cout << "Saving file: " << filePath << std::endl;
+            app.GetJsonHandler().Save(filePath, app.GetSceneData());
+        }
+        ImGuiFileDialog::Instance()->Close();
+    }
+#endif
 
 #ifdef __EMSCRIPTEN__
     if (sceneData.settings.showWelcomeWindow) {

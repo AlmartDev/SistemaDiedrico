@@ -1,7 +1,7 @@
 include(FetchContent)
 
 macro(LinkImGuiFileDialog TARGET ACCESS)
-    if(NOT BUILD_WEB) # NOT WIN32 AND 
+    if(NOT BUILD_WEB AND NOT WIN32)
         message(STATUS "Including ImGuiFileDialog (non-Windows, non-Web build)")
         
         FetchContent_Declare(

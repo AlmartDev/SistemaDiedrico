@@ -14,7 +14,7 @@
     #include <emscripten/val.h>
     #include <stdio.h>
     #include <sys/stat.h>
-#else
+#elif _WIN32
     #include <windows.h>
 #endif
 
@@ -258,8 +258,6 @@ public:
             }
         }
         return "";
-#else
-        return "";
 #endif
     }
 
@@ -287,8 +285,6 @@ public:
             return ofn.lpstrFile;
         }
 
-        return "";
-#else
         return "";
 #endif
     }
