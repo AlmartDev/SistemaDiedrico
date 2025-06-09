@@ -102,6 +102,10 @@ endif()
 include(${CMAKE_MODULE_PATH}/LinkIMGUI.cmake)
 ImGui(${PROJECT_NAME} PRIVATE)
 
+# ImGuiFileDialog (only for non-Windows and non-Web builds)
+include(${CMAKE_MODULE_PATH}/LinkImGuiFileDialog.cmake)
+LinkImGuiFileDialog(${PROJECT_NAME} PRIVATE)
+
 # GLM
 include(${CMAKE_MODULE_PATH}/LinkGLM.cmake)
 LinkGLM(${PROJECT_NAME} PRIVATE)

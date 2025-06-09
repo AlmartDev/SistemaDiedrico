@@ -219,6 +219,9 @@ void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lin
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
 
         if (m_showCutLines) {
+            // Disable depth test to draw cut lines over dihedrals
+            glDisable(GL_DEPTH_TEST);
+
             CreateThickLineGeometry(vertices, 
                 glm::vec3(line.first.x, line.first.y, 0.0f), 
                 glm::vec3(line.second.x, line.second.y, 0.0f), 
@@ -234,6 +237,9 @@ void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lin
             glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);
             glUniform3f(glGetUniformLocation(m_mainShader, "color"), 0.0f, 1.0f, 0.0f);
             glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
+
+            // Restore depth test
+            glEnable(GL_DEPTH_TEST);
         }
     }
 

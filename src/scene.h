@@ -52,7 +52,7 @@ struct SceneData {
         float fontSize = 14.0f;
 
         float pointSize = 8.0f;
-        float lineThickness = 3.0f;
+        float lineThickness = 2.25f;
         float planeOpacity = 0.6f;
 
         float offset[2] = {0.0f, 0.0f};
