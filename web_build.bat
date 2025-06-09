@@ -2,7 +2,7 @@
 setlocal
 
 :: Set Emscripten path - UPDATE THIS TO YOUR ACTUAL PATH
-set EMSDK_PATH=C:\Users\{yourusername}\emsdk
+set EMSDK_PATH=C:\Users\alons\emsdk
 
 :: Clear build directory
 if exist "build_web" rmdir /s /q "build_web"
