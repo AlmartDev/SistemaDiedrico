@@ -6,7 +6,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.10.3"
+#define PROGRAM_VERSION "0.10.5"
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -54,6 +54,18 @@ void UI::DrawUI(App& app) {
     DrawDihedralViewport(app);
 }
 
+void OpenURL(const std::string& url) {
+#ifdef __EMSCRIPTEN__
+    emscripten_run_script(("window.open('" + url + "', '_blank');").c_str());
+#elif _WIN32
+    std::string command = "start " + url; // For Windows
+    system(command.c_str());
+#else
+    std::string command = "xdg-open " + url; // For Linux
+    system(command.c_str());
+#endif
+}
+
 void UI::DrawMenuBar(App& app) {
     auto& sceneData = app.GetSceneData();
     int width = app.GetWindowWidth();
@@ -64,20 +76,7 @@ void UI::DrawMenuBar(App& app) {
                 if (ImGui::MenuItem("Open", "Ctrl+O")) {
                 #ifdef __EMSCRIPTEN__
                     JsonHandler* handler = JsonHandlerInstance();
-
-                    std::string loadedFilePath = handler->OpenFileDialog(); // This now blocks until file is selected
-
-                    if (!loadedFilePath.empty()) {
-                        std::vector<nlohmann::json> result = handler->Load(loadedFilePath);
-
-                        // Do something with the loaded data
-                        if (!result.empty()) {
-                            // Example: print number of points
-                            std::cout << "Loaded " << result[0].size() << " points." << std::endl;
-                        }
-                    } else {
-                        std::cout << "No file selected or loading failed." << std::endl;
-                    }
+                    handler->OpenFileDialog();
                 #else
                     std::string path = app.GetJsonHandler().OpenFileDialog();
                     std::vector<nlohmann::json> data = app.GetJsonHandler().Load(path);
@@ -102,10 +101,19 @@ void UI::DrawMenuBar(App& app) {
         }
         #endif
 
-        if (ImGui::BeginMenu("About")) {
-            ImGui::Text("Version %s", PROGRAM_VERSION);
-            ImGui::Text("Made by Alonso Martínez");
-            ImGui::Text("@almartdev on GitHub");
+        if (ImGui::BeginMenu("Help")) {
+            if (ImGui::MenuItem("GitHub")) {
+                OpenURL("https://github.com/AlmartDev/SistemaDiedrico");
+            }
+            if (ImGui::MenuItem("Documentation")) {
+                ImGui::Text("Documentation is not available yet.");
+            }
+            if (ImGui::BeginMenu("About")) {
+                ImGui::Text("Version %s", PROGRAM_VERSION);
+                ImGui::Text("Made by Alonso Martínez");
+                ImGui::Text("@almartdev on GitHub");
+                ImGui::EndMenu();
+            }
             ImGui::EndMenu();
         }
 
@@ -161,7 +169,7 @@ void UI::DrawSettingsWindow(App& app) {
     //ImGui::SliderFloat("Camera Distance", &sceneData.settings.cameraDistance, 0.1f, 25.0f);
     //camera.SetDistance(sceneData.settings.cameraDistance);
 
-    ImGui::DragFloat2("Offset (X, Y)", sceneData.settings.offset, 0.3f);
+    ImGui::DragFloat2("Offset (X, Y)", sceneData.settings.offset, 0.75f);
 
     ImGui::Checkbox("Enable VSync", &sceneData.settings.VSync);
     ImGui::SameLine();

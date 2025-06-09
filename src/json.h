@@ -134,6 +134,33 @@ public:
             content["points"].push_back(pointJson);
         }
 
+        content["lines"] = nlohmann::json::array();
+        for (const auto& line : sceneData.lines) {
+            nlohmann::json lineJson;
+            lineJson["name"] = line.name;
+            // get the 2 points by their indexes
+            lineJson["point1"] = sceneData.points[line.point1index].coords;
+            lineJson["point2"] = sceneData.points[line.point2index].coords;
+
+            lineJson["color"] = {line.color[0], line.color[1], line.color[2]};
+            lineJson["showVisibility"] = line.showVisibility;
+            content["lines"].push_back(lineJson);
+        }
+
+        content["planes"] = nlohmann::json::array();
+        for (const auto& plane : sceneData.planes) {
+            nlohmann::json planeJson;
+            planeJson["name"] = plane.name;
+            // get the 3 points by their indexes
+            planeJson["point1"] = sceneData.points[plane.point1index].coords;
+            planeJson["point2"] = sceneData.points[plane.point2index].coords;
+            planeJson["point3"] = sceneData.points[plane.point3index].coords;
+
+            planeJson["color"] = {plane.color[0], plane.color[1], plane.color[2]};
+            planeJson["expand"] = plane.expand;
+            content["planes"].push_back(planeJson);
+        }
+
         std::string jsonStr = content.dump(4);
 
 #ifdef __EMSCRIPTEN__
@@ -177,32 +204,32 @@ public:
 
     std::string OpenFileDialog() {
 #ifdef __EMSCRIPTEN__
-    fileLoaded = false;
+        fileLoaded = false;
 
-    EM_ASM({
-        if (!document.getElementById('fileLoader')) {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.id = 'fileLoader';
-            input.accept = '.json';
-            input.style.display = 'none';
-            input.onchange = function(e) {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                reader.onload = function() {
-                    const content = reader.result;
-                    Module().then(instance => {
-                        instance.ccall('handleFileLoad', null, ['string'], [content]);
-                    });
+        EM_ASM({
+            if (!document.getElementById('fileLoader')) {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.id = 'fileLoader';
+                input.accept = '.json';
+                input.style.display = 'none';
+                
+                input.onchange = function(e) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const content = event.target.result;
+                        // Directly pass to C++ (no UTF8ToString needed)
+                        Module.handleFileLoad(content);
+                    };
+                    reader.readAsText(file);
                 };
-                reader.readAsText(file);
-            };
-            document.body.appendChild(input);
-        }
-        document.getElementById('fileLoader').click();
-    });
+                document.body.appendChild(input);
+            }
+            document.getElementById('fileLoader').click();
+        });
 
-    return loadedPath; // This is now handled later, not immediately
+        return "/loaded.json"; // Return the virtual filesystem path
 #elif _WIN32
         OPENFILENAMEA ofn;
         CHAR szFile[MAX_PATH] = {0};
@@ -235,7 +262,6 @@ public:
         return "";
 #endif
     }
-
 
     std::string SaveFileDialog( const std::string &filter = "JSON files (*.json)\0*.json\0All files (*.*)\0*.*\0") {
 #ifdef __EMSCRIPTEN__  // emscriptem
@@ -309,5 +335,5 @@ public:
 
 #ifdef __EMSCRIPTEN__
 extern JsonHandler* JsonHandlerInstance();
-extern "C" void handleFileLoad(const char* content);
+extern "C" void handleFileLoad(const std::string& content); 
 #endif

@@ -11,37 +11,48 @@
 
 #ifdef __EMSCRIPTEN__ 
 #include <emscripten.h>
-#endif
+#include <emscripten/bind.h>
+#include <emscripten/val.h>
 
-#ifdef __EMSCRIPTEN__
 JsonHandler* JsonHandlerInstance() {
     static JsonHandler instance;
     return &instance;
 }
 
-extern "C" {
-    void handleFileLoad(const char* content) {
-        JsonHandler* handler = JsonHandlerInstance();
-        handler->loadedContent = std::string(content);
-        handler->fileLoaded = true;
-
-        // CALL your logic here:
-        std::string path = handler->loadedPath;
-        std::ofstream file(path);
-        file << handler->loadedContent;
-        file.close();
-
-        // Now trigger loading (replace this with your app logic)
-        auto result = handler->Load(path);
-        std::cout << "Loaded " << result[0].size() << " points" << std::endl;
+void handleFileLoad(const std::string& content) {
+    std::cout << "File loaded with content length: " << content.length() << std::endl;
+    JsonHandler* handler = JsonHandlerInstance();
+    handler->loadedContent = content;
+    handler->fileLoaded = true;
+    
+    // Write to virtual filesystem
+    FILE* file = fopen(handler->loadedPath.c_str(), "w");
+    if (file) {
+        fwrite(content.c_str(), 1, content.length(), file);
+        fclose(file);
     }
+    
+    // Load data through App instance
+    if (App::s_instance) {
+        std::vector<nlohmann::json> result = handler->Load(handler->loadedPath);
+        if (!result.empty()) {
+            App::s_instance->LoadProject(result);
+        }
+    }
+}
+
+EMSCRIPTEN_BINDINGS(my_module) {
+    emscripten::function("handleFileLoad", &handleFileLoad);
 }
 #endif
 
 double App::m_scrollY = 0.0;
 
+App* App::s_instance = nullptr;
+
 App::App() : m_window(nullptr) {
     m_ui = new UI();
+    s_instance = this;
 }
 
 bool App::Initialize() {
@@ -158,15 +169,135 @@ void App::HandleInput() {
     }
 }
 
-void App::LoadProject(std::vector<nlohmann::json> data){
-    if (!data.empty()) {
+void App::LoadProject(std::vector<nlohmann::json> data) {
+    if (data.empty()) return;
+
+    // Clear existing data (optional)
+    m_sceneData.points.clear();
+    m_sceneData.lines.clear();
+    m_sceneData.planes.clear();
+
+    // Helper function to safely get JSON values with defaults
+    auto getFloat = [](const nlohmann::json& j, const std::string& key, float def = 0.0f) {
+        return j.contains(key) ? j[key].get<float>() : def;
+    };
+
+    // Load points
+    if (!data[0].empty()) {
         for (const auto& point : data[0]) {
-            SceneData::Point p;
-            p.name = point["name"].get<std::string>();
-            p.coords[0] = point["coords"]["d"].get<float>();
-            p.coords[1] = point["coords"]["a"].get<float>();
-            p.coords[2] = point["coords"]["c"].get<float>();
-            m_sceneData.points.push_back(p);
+            try {
+                SceneData::Point p;
+                p.name = point["name"].get<std::string>();
+                p.coords[0] = point["coords"]["d"].get<float>();
+                p.coords[1] = point["coords"]["a"].get<float>();
+                p.coords[2] = point["coords"]["c"].get<float>();
+                p.color[0] = getFloat(point["color"], "0", 1.0f);
+                p.color[1] = getFloat(point["color"], "1", 0.5f);
+                p.color[2] = getFloat(point["color"], "2", 0.0f);
+                p.hidden = point["hidden"].get<bool>();
+                p.userCreated = point["userCreated"].get<bool>();
+                m_sceneData.points.push_back(p);
+            } catch (const nlohmann::json::exception& e) {
+                std::cerr << "Error loading point: " << e.what() << std::endl;
+            }
+        }
+    }
+
+    // Load lines
+    if (data.size() > 1 && !data[1].empty()) {
+        for (const auto& line : data[1]) {
+            try {
+                SceneData::Line l;
+                l.name = line["name"].get<std::string>();
+
+                // Find or create points
+                auto findOrCreatePoint = [&](const nlohmann::json& pointJson, const std::string& suffix) {
+                    SceneData::Point p;
+                    p.name = line["name"].get<std::string>() + suffix;
+                    if (pointJson.is_object()) {
+                        p.coords[0] = pointJson.contains("d") ? pointJson["d"].get<float>() : 0.0f;
+                        p.coords[1] = pointJson.contains("a") ? pointJson["a"].get<float>() : 0.0f;
+                        p.coords[2] = pointJson.contains("c") ? pointJson["c"].get<float>() : 0.0f;
+                    } else if (pointJson.is_array() && pointJson.size() >= 3) {
+                        p.coords[0] = pointJson[0].get<float>();
+                        p.coords[1] = pointJson[1].get<float>();
+                        p.coords[2] = pointJson[2].get<float>();
+                    } else {
+                        p.coords[0] = p.coords[1] = p.coords[2] = 0.0f;
+                    }
+                    
+                    // Check if point already exists
+                    auto it = std::find_if(m_sceneData.points.begin(), m_sceneData.points.end(),
+                        [&p](const SceneData::Point& existing) { return existing.name == p.name; });
+                    
+                    if (it == m_sceneData.points.end()) {
+                        m_sceneData.points.push_back(p);
+                        return static_cast<int>(m_sceneData.points.size() - 1);
+                    }
+                    return static_cast<int>(std::distance(m_sceneData.points.begin(), it));
+                };
+
+                l.point1index = findOrCreatePoint(line["point1"], "1");
+                l.point2index = findOrCreatePoint(line["point2"], "2");
+
+                l.color[0] = getFloat(line["color"], "0", 1.0f);
+                l.color[1] = getFloat(line["color"], "1", 1.0f);
+                l.color[2] = getFloat(line["color"], "2", 1.0f);
+                l.showVisibility = line["showVisibility"].get<bool>();
+                
+                m_sceneData.lines.push_back(l);
+            } catch (const nlohmann::json::exception& e) {
+                std::cerr << "Error loading line: " << e.what() << std::endl;
+            }
+        }
+    }
+
+    // Load planes
+    if (data.size() > 2 && !data[2].empty()) {
+        for (const auto& plane : data[2]) {
+            try {
+                SceneData::Plane p;
+                p.name = plane["name"].get<std::string>();
+
+                // Find or create points (similar to lines)
+                auto findOrCreatePoint = [&](const nlohmann::json& pointJson, const std::string& suffix) {
+                    SceneData::Point pt;
+                    pt.name = plane["name"].get<std::string>() + suffix;
+                    if (pointJson.is_object()) {
+                        pt.coords[0] = pointJson.contains("d") ? pointJson["d"].get<float>() : 0.0f;
+                        pt.coords[1] = pointJson.contains("a") ? pointJson["a"].get<float>() : 0.0f;
+                        pt.coords[2] = pointJson.contains("c") ? pointJson["c"].get<float>() : 0.0f;
+                    } else if (pointJson.is_array() && pointJson.size() >= 3) {
+                        pt.coords[0] = pointJson[0].get<float>();
+                        pt.coords[1] = pointJson[1].get<float>();
+                        pt.coords[2] = pointJson[2].get<float>();
+                    } else {
+                        pt.coords[0] = pt.coords[1] = pt.coords[2] = 0.0f;
+                    }
+                    
+                    auto it = std::find_if(m_sceneData.points.begin(), m_sceneData.points.end(),
+                        [&pt](const SceneData::Point& existing) { return existing.name == pt.name; });
+                    
+                    if (it == m_sceneData.points.end()) {
+                        m_sceneData.points.push_back(pt);
+                        return static_cast<int>(m_sceneData.points.size() - 1);
+                    }
+                    return static_cast<int>(std::distance(m_sceneData.points.begin(), it));
+                };
+
+                p.point1index = findOrCreatePoint(plane["point1"], "1");
+                p.point2index = findOrCreatePoint(plane["point2"], "2");
+                p.point3index = findOrCreatePoint(plane["point3"], "3");
+
+                p.color[0] = getFloat(plane["color"], "0", 0.5f);
+                p.color[1] = getFloat(plane["color"], "1", 0.5f);
+                p.color[2] = getFloat(plane["color"], "2", 0.5f);
+                p.expand = plane["expand"].get<bool>();
+                
+                m_sceneData.planes.push_back(p);
+            } catch (const nlohmann::json::exception& e) {
+                std::cerr << "Error loading plane: " << e.what() << std::endl;
+            }
         }
     }
 }
@@ -223,6 +354,9 @@ void App::DeletePoint(SceneData::Point& point) { // this isnt good
 
 void App::Run() {
     while (!glfwWindowShouldClose(m_window)) {
+        #ifdef __EMSCRIPTEN__
+        std::cout << m_jsonHandler.fileLoaded << std::endl;
+        #endif
         Frame();
     }
 }

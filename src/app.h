@@ -19,8 +19,9 @@ class UI;
 
 class App {
 public:
+    static App* s_instance;
+
     App();
-    //~App();
 
     bool Initialize();
     void Run();
