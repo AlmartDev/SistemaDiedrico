@@ -10,6 +10,8 @@ class App;
 #include <imgui_internal.h>
 #include <string>
 
+#include "dihedral.h"
+
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
 #include "ImGuiFileDialog.h"
 #endif
@@ -31,6 +33,8 @@ private:
     void DrawPointsTab(App& app);
     void DrawLinesTab(App& app);
     void DrawPlanesTab(App& app);
+
+    DihedralViewport dihedralViewport;
     void DrawDihedralViewport(App& app);
 
     // File dialogs

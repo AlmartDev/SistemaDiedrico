@@ -371,10 +371,11 @@ void App::Frame() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    if (m_sceneData.settings.VSync) 
+    if (m_sceneData.settings.VSync) {
         glfwSwapInterval(1);
-    else
+    } else {
         glfwSwapInterval(0);
+    }
 
     // Get the display size first (this is crucial for Emscripten)
 #ifdef __EMSCRIPTEN__
