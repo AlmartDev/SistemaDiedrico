@@ -6,8 +6,12 @@
 #include <glad/glad.h>
 #endif
 
+#include <imgui.h> // 3D labels
+#include <string>
+
 #include <vector>
 #include <glm/glm.hpp>
+
 #include "camera.h"
 
 class Renderer {
@@ -16,13 +20,16 @@ public:
     void Render();
     void UpdateCamera(const Camera& camera, int width, int height);
 
-    void DrawPoints(const std::vector<glm::vec3>& points, 
+    void DrawPoints(const std::vector<char*>& names,
+                   const std::vector<glm::vec3>& points, 
                    const std::vector<glm::vec3>& colors, 
                    float size);
-    void DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lines,
+    void DrawLines(const std::vector<char*>& names,
+                   const std::vector<std::pair<glm::vec3, glm::vec3>>& lines,
                    const std::vector<glm::vec3>& colors, 
                    float thickness, const Camera& camera);
-    void DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes, 
+    void DrawPlanes(const std::vector<char*>& names,
+                   const std::vector<std::vector<glm::vec3>>& planes, 
                    const std::vector<glm::vec3>& colors,
                    std::vector<bool>& expand,
                    float opacity);
@@ -32,15 +39,32 @@ public:
     void SetCutPointVisible(bool visible) { m_showCutPoints = visible; }
     void SetCutLineVisible(bool visible) { m_showCutLines = visible; }
 
+    void SetLabelsVisible(bool labels[3]) {
+        m_showPointLabels = labels[0];
+        m_showLineLabels = labels[1];
+        m_showPlaneLabels = labels[2];
+    }
+
+    void SetQuadrantLabelsVisible(bool visible) { m_showQuadrantLabels = visible; }
+
+    void DrawLabel(const char* text, const glm::vec3& position, const glm::vec3& color, bool showBackground);
 private:
     void DrawAxes();
     void SetupShaderProgram(GLuint& program, const char* vertexSrc, const char* fragmentSrc);
     void SetupBuffer(GLuint& vao, GLuint& vbo, const void* data, size_t size);
 
+    glm::vec2 WorldToScreen(const glm::vec3& worldPos);
+    std::vector<std::tuple<std::string, glm::vec2, glm::vec3, bool>> m_labels;
+
     int m_axesType = 0;
     bool m_showDihedral = false;
-    bool m_showCutPoints = true;
-    bool m_showCutLines = true;
+    bool m_showCutPoints = false;
+    bool m_showCutLines = false;
+
+    bool m_showQuadrantLabels = false;
+    bool m_showPointLabels = true;
+    bool m_showLineLabels = true;
+    bool m_showPlaneLabels = true;
 
     glm::mat4 m_viewMatrix;
     glm::mat4 m_projectionMatrix;

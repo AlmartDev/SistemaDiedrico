@@ -2,6 +2,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <numeric>
+
 #ifndef GL_PROGRAM_POINT_SIZE
 #define GL_PROGRAM_POINT_SIZE 0x8642
 #endif
@@ -150,14 +152,90 @@ void Renderer::Render() {
         
         glUniform3f(glGetUniformLocation(m_mainShader, "color"), 0.8f, 0.2f, 0.2f);
         glDrawArrays(GL_TRIANGLE_FAN, 4, 4);
+
+        // show quadrant labels
+        // Coords are in dihedral space, so no x,y,z, but d,a,c (which would be like x,z,y)
+        if (m_showQuadrantLabels) {
+            DrawLabel("I", glm::vec3(0.0f, 0.7f, 0.7f), glm::vec3(1.0f, 1.0f, 1.0f), true);
+            DrawLabel("II", glm::vec3(0.0f, 0.7f, -0.7f), glm::vec3(1.0f, 1.0f, 1.0f), true);
+            DrawLabel("III", glm::vec3(0.0f, -0.7f, -0.7f), glm::vec3(1.0f, 1.0f, 1.0f), true);
+            DrawLabel("IV", glm::vec3(0.0f, -0.7f, 0.7f), glm::vec3(1.0f, 1.0f, 1.0f), true);
+        }
         
         glBindVertexArray(0);
+    }
+
+    // Draw all accumulated labels
+    if (!m_labels.empty()) {
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        
+        ImGui::Begin("Labels", nullptr, 
+            ImGuiWindowFlags_NoTitleBar | 
+            ImGuiWindowFlags_NoInputs | 
+            ImGuiWindowFlags_NoMove | 
+            ImGuiWindowFlags_NoScrollbar | 
+            ImGuiWindowFlags_NoSavedSettings | 
+            ImGuiWindowFlags_NoFocusOnAppearing | 
+            ImGuiWindowFlags_NoBringToFrontOnFocus);
+        
+        // Get the current window size to set as the overlay size
+        GLint viewport[4];
+        glGetIntegerv(GL_VIEWPORT, viewport);
+        ImGui::SetWindowSize(ImVec2((float)viewport[2], (float)viewport[3]));
+        ImGui::SetWindowPos(ImVec2(0, 0));
+        
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        
+        for (const auto& label : m_labels) {
+            ImVec2 pos(std::get<1>(label).x, std::get<1>(label).y);
+            const char* text = std::get<0>(label).c_str();
+            ImVec2 text_size = ImGui::CalcTextSize(text);
+            if (std::get<3>(label)) {
+                ImVec2 padding(4.0f, 2.0f);
+                ImVec2 rect_min = ImVec2(pos.x - padding.x, pos.y - padding.y);
+                ImVec2 rect_max = ImVec2(pos.x + text_size.x + padding.x, pos.y + text_size.y + padding.y);
+                drawList->AddRectFilled(rect_min, rect_max, ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, 0.4f)), 4.0f);
+            }
+            const glm::vec3& col = std::get<2>(label);
+            drawList->AddText(pos, ImGui::GetColorU32(ImVec4(col.r, col.g, col.b, 1.0f)), text);
+        }
+
+        ImGui::End();
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar();
+        
+        m_labels.clear();
     }
 
     glFlush();
 }
 
-void Renderer::DrawPoints(const std::vector<glm::vec3>& points, 
+void Renderer::DrawLabel(const char* text, const glm::vec3& position, const glm::vec3& color, bool showBackground = false) {
+    glm::vec2 screenPos = WorldToScreen(position);
+    m_labels.emplace_back(text, screenPos, color, showBackground);
+}
+
+glm::vec2 Renderer::WorldToScreen(const glm::vec3& worldPos) {
+    glm::vec4 clipSpacePos = m_projectionMatrix * m_viewMatrix * glm::vec4(worldPos, 1.0f);
+
+    if (clipSpacePos.w == 0.0f)
+        return glm::vec2(0.0f);
+
+    glm::vec3 ndc = glm::vec3(clipSpacePos) / clipSpacePos.w;
+
+    // Get viewport
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    float x = viewport[0] + (ndc.x + 1.0f) * 0.5f * viewport[2];
+    float y = viewport[1] + (1.0f - (ndc.y + 1.0f) * 0.5f) * viewport[3];
+
+    return glm::vec2(x, y);
+}
+
+void Renderer::DrawPoints(const std::vector<char*>& names,
+                         const std::vector<glm::vec3>& points, 
                          const std::vector<glm::vec3>& colors, 
                          float size) {
     if (points.empty() || points.size() != colors.size()) return;
@@ -172,6 +250,12 @@ void Renderer::DrawPoints(const std::vector<glm::vec3>& points,
         glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3), &points[i], GL_STATIC_DRAW);
         glUniform3f(glGetUniformLocation(m_mainShader, "color"), colors[i].r, colors[i].g, colors[i].b);
         glDrawArrays(GL_POINTS, 0, 1);
+    }
+
+    if (m_showPointLabels) {
+        for (size_t i = 0; i < points.size(); i++) {
+            DrawLabel(names[i], points[i], colors[i]);
+        }
     }
 
     if (m_showCutPoints) {
@@ -192,7 +276,8 @@ void Renderer::DrawPoints(const std::vector<glm::vec3>& points,
     glBindVertexArray(0);
 }
 
-void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lines, 
+void Renderer::DrawLines(const std::vector<char*>& names,
+                         const std::vector<std::pair<glm::vec3, glm::vec3>>& lines, 
                          const std::vector<glm::vec3>& colors, 
                          float thickness, const Camera& camera) {
     if (lines.empty() || lines.size() != colors.size()) return;
@@ -217,6 +302,11 @@ void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lin
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);
         glUniform3f(glGetUniformLocation(m_mainShader, "color"), colors[i].r, colors[i].g, colors[i].b);
         glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
+
+        if (m_showLineLabels) {
+            glm::vec3 midPoint = (line.first + line.second) * 0.5f;
+            DrawLabel(names[i], midPoint, colors[i], true);
+        }
 
         if (m_showCutLines) {
             // Disable depth test to draw cut lines over dihedrals
@@ -248,7 +338,8 @@ void Renderer::DrawLines(const std::vector<std::pair<glm::vec3, glm::vec3>>& lin
     glDeleteBuffers(1, &VBO);
 }
 
-void Renderer::DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes, 
+void Renderer::DrawPlanes(const std::vector<char*>& names,
+                         const std::vector<std::vector<glm::vec3>>& planes, 
                          const std::vector<glm::vec3>& colors,
                          std::vector<bool>& expand,
                          float opacity) {
@@ -307,6 +398,11 @@ void Renderer::DrawPlanes(const std::vector<std::vector<glm::vec3>>& planes,
             }
         } else {
             vertices = plane;
+        }
+
+        if (m_showPlaneLabels) {
+            glm::vec3 center = std::accumulate(vertices.begin(), vertices.end(), glm::vec3(0.0f)) / static_cast<float>(vertices.size());
+            DrawLabel(names[i], center, colors[i], true);
         }
 
         glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);

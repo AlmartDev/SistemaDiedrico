@@ -162,6 +162,9 @@ void App::HandleInput() {
         #endif
     }
 
+    if (glfwGetKey(m_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
+        m_renderer.SetQuadrantLabelsVisible(!m_sceneData.settings.showQuadrantLabels);
+
     if (m_scrollY != 0) {
         m_camera.SetDistance(m_camera.GetDistance() - static_cast<float>(m_scrollY) * .3f);
         m_scrollY = 0.0;
@@ -306,9 +309,12 @@ void App::LoadProject(std::vector<nlohmann::json> data) {
 }
 
 void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
+    std::vector<char*> pointNames, lineNames, planeNames;
+
     std::vector<glm::vec3> pointPositions, pointColors;
     for (const auto& point : m_sceneData.points) {
         if (point.hidden) continue;
+        pointNames.push_back(const_cast<char*>(point.name.c_str()));
         pointPositions.emplace_back(point.coords[0]/50, point.coords[2]/50, point.coords[1]/50);
         pointColors.emplace_back(point.color[0], point.color[1], point.color[2]);
     }
@@ -316,6 +322,8 @@ void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
     std::vector<std::pair<glm::vec3, glm::vec3>> linePositions;
     std::vector<glm::vec3> lineColors;
     for (const auto& line : m_sceneData.lines) {
+        lineNames.push_back(const_cast<char*>(line.name.c_str()));
+
         const auto& point1 = m_sceneData.points[line.point1index];
         const auto& point2 = m_sceneData.points[line.point2index];
 
@@ -331,6 +339,8 @@ void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
     std::vector<bool> planeExpand;
 
     for (const auto& plane : m_sceneData.planes) {
+        planeNames.push_back(const_cast<char*>(plane.name.c_str()));
+
         const auto& point1 = m_sceneData.points[plane.point1index];
         const auto& point2 = m_sceneData.points[plane.point2index];
         const auto& point3 = m_sceneData.points[plane.point3index];
@@ -345,9 +355,9 @@ void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
         planeExpand.push_back(plane.expand);
     }
 
-    m_renderer.DrawPoints(pointPositions, pointColors, m_sceneData.settings.pointSize);
-    m_renderer.DrawLines(linePositions, lineColors, m_sceneData.settings.lineThickness, m_camera);
-    m_renderer.DrawPlanes(planePositions, planeColors, planeExpand, m_sceneData.settings.planeOpacity);
+    m_renderer.DrawPoints(pointNames, pointPositions, pointColors, m_sceneData.settings.pointSize);
+    m_renderer.DrawLines(lineNames, linePositions, lineColors, m_sceneData.settings.lineThickness, m_camera);
+    m_renderer.DrawPlanes(planeNames, planePositions, planeColors, planeExpand, m_sceneData.settings.planeOpacity);
 }
 
 void App::DeletePoint(SceneData::Point& point) { // this isnt good
@@ -357,9 +367,6 @@ void App::DeletePoint(SceneData::Point& point) { // this isnt good
 
 void App::Run() {
     while (!glfwWindowShouldClose(m_window)) {
-        #ifdef __EMSCRIPTEN__
-        std::cout << m_jsonHandler.fileLoaded << std::endl;
-        #endif
         Frame();
     }
 }
@@ -415,6 +422,10 @@ void App::Frame() {
 
     m_renderer.Render();
     PrepareRenderData();
+
+    //labels
+    m_renderer.SetQuadrantLabelsVisible(m_sceneData.settings.showQuadrantLabels);
+    m_renderer.SetLabelsVisible(m_sceneData.settings.showLabels);
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

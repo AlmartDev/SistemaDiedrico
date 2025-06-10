@@ -7,7 +7,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.10.7"
+#define PROGRAM_VERSION "0.12"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -222,10 +222,6 @@ void UI::DrawSettingsWindow(App& app) {
 
     ImGui::Begin("3D Representation Settings");
 
-    ImGui::ColorEdit3("Background Color", sceneData.settings.backgroundColor);
-    ImGui::ColorEdit3("Dihedral Bg Color", sceneData.settings.dihedralBackgroundColor);
-    ImGui::ColorEdit3("Dihedral Line Color", sceneData.settings.dihedralLineColor);
-
     const char* axesTypes[] = {"3D Axes", "Cartesian Axes", "Dihedral Axes ONLY"};
     ImGui::Combo("Axes Type", &sceneData.settings.axesType, axesTypes, IM_ARRAYSIZE(axesTypes));
     renderer.SetAxesType(sceneData.settings.axesType);
@@ -242,21 +238,42 @@ void UI::DrawSettingsWindow(App& app) {
     //camera.SetDistance(sceneData.settings.cameraDistance);
 
     ImGui::DragFloat2("Offset (X, Y)", sceneData.settings.offset, 0.75f);
+    ImGui::Checkbox("Show Quadrant Labels", &sceneData.settings.showQuadrantLabels);
 
-    ImGui::Checkbox("Enable VSync", &sceneData.settings.VSync);
-    ImGui::SameLine();
+    // Make "More Settings" button span the width of the window
+    float buttonWidth = ImGui::GetContentRegionAvail().x;
+    if (ImGui::Button("More Settings", ImVec2(buttonWidth, 0))) {
+        ImGui::OpenPopup("moresettings");
+    }
 
-    ImGui::Checkbox("Invert MouseX", &sceneData.settings.invertMouse[0]);
-    ImGui::SameLine();
-    ImGui::Checkbox("Invert MouseY", &sceneData.settings.invertMouse[1]);
+    ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.35f), "FPS: %.1f", ImGui::GetIO().Framerate);
 
-    /*ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)", 
+    // popup
+    if (ImGui::BeginPopupModal("moresettings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::ColorEdit3("Background Color", sceneData.settings.backgroundColor);
+        ImGui::ColorEdit3("Dihedral Bg Color", sceneData.settings.dihedralBackgroundColor);
+        ImGui::ColorEdit3("Dihedral Line Color", sceneData.settings.dihedralLineColor);
+
+        ImGui::Checkbox("Enable VSync", &sceneData.settings.VSync);
+
+        ImGui::Checkbox("Invert MouseX", &sceneData.settings.invertMouse[0]);
+        ImGui::SameLine();
+        ImGui::Checkbox("Invert MouseY", &sceneData.settings.invertMouse[1]);
+
+        ImGui::Separator();
+        if (ImGui::Button("Close")) {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.35f), "Camera Position: (%.2f, %.2f, %.2f)", 
                 camera.GetPosition().x, 
                 camera.GetPosition().y, 
-                camera.GetPosition().z);*/
+                camera.GetPosition().z);
 
-    ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+        ImGui::EndPopup();
+    }
     ImGui::End();
+
 }
 
 void UI::DrawPointsTab(App& app) {
@@ -292,8 +309,11 @@ void UI::DrawPointsTab(App& app) {
     }
 
     ImGui::SameLine();
-    ImGui::Checkbox("Show Cut Points", &sceneData.settings.showCutPoints);
+    ImGui::Checkbox("Show Cuts", &sceneData.settings.showCutPoints);
     renderer.SetCutPointVisible(sceneData.settings.showCutPoints);
+
+    ImGui::SameLine();
+    ImGui::Checkbox("Labels", &sceneData.settings.showLabels[0]);
 
     ImGui::DragFloat("Point Size", &sceneData.settings.pointSize, 0.1f, 0.1f, 100.0f);
 
@@ -437,8 +457,11 @@ void UI::DrawLinesTab(App& app) {
     }
 
     ImGui::SameLine();
-    ImGui::Checkbox("Show Cut Lines", &sceneData.settings.showCutLines);
+    ImGui::Checkbox("Show Cuts", &sceneData.settings.showCutLines);
     renderer.SetCutLineVisible(sceneData.settings.showCutLines);
+
+    ImGui::SameLine();
+    ImGui::Checkbox("Labels", &sceneData.settings.showLabels[1]);
 
     ImGui::Separator();
 
@@ -578,6 +601,10 @@ void UI::DrawPlanesTab(App& app) {
                     }
                 }
             }
+
+            ImGui::SameLine();
+            ImGui::Checkbox("Labels", &sceneData.settings.showLabels[2]);
+
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Add Coords")) {

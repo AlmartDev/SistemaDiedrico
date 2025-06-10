@@ -41,9 +41,9 @@ struct SceneData {
 
         bool showDihedralSystem = true;
 
-        bool showCutPoints = true;
-        bool showCutLines = true;
-        bool showCutPlanes = true;
+        bool showCutPoints = false;
+        bool showCutLines = false;
+        bool showCutPlanes = false; // doesnt do anything yet
         bool expandPlanes = false;
 
         float mouseSensitivity = 0.2f;
@@ -51,9 +51,12 @@ struct SceneData {
         float cameraDistance;
         float fontSize = 14.0f;
 
-        float pointSize = 8.0f;
-        float lineThickness = 2.25f;
+        float pointSize = 6.0f;
+        float lineThickness = 1.5f;
         float planeOpacity = 0.6f;
+
+        bool showLabels[3] = {true, true, true}; // Points, Lines, Planes
+        bool showQuadrantLabels = false;
 
         float offset[2] = {-75.0f, 0.0f};
         bool VSync = true;
