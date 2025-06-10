@@ -7,7 +7,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.12"
+#define PROGRAM_VERSION "0.12.1"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -243,13 +243,13 @@ void UI::DrawSettingsWindow(App& app) {
     // Make "More Settings" button span the width of the window
     float buttonWidth = ImGui::GetContentRegionAvail().x;
     if (ImGui::Button("More Settings", ImVec2(buttonWidth, 0))) {
-        ImGui::OpenPopup("moresettings");
+        ImGui::OpenPopup("More Settings");
     }
 
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.35f), "FPS: %.1f", ImGui::GetIO().Framerate);
 
     // popup
-    if (ImGui::BeginPopupModal("moresettings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ImGui::BeginPopupModal("More Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::ColorEdit3("Background Color", sceneData.settings.backgroundColor);
         ImGui::ColorEdit3("Dihedral Bg Color", sceneData.settings.dihedralBackgroundColor);
         ImGui::ColorEdit3("Dihedral Line Color", sceneData.settings.dihedralLineColor);
@@ -495,7 +495,7 @@ void UI::DrawLinesTab(App& app) {
             */
 
             ImGui::TableSetColumnIndex(1);
-            bool pointsHidden = sceneData.points[line.point1index].hidden && sceneData.settings.showCutPoints;
+            bool pointsHidden = sceneData.points[line.point1index].hidden;
             if (ImGui::Checkbox("##Hide", &pointsHidden)) {
                 sceneData.points[line.point1index].hidden = pointsHidden;
                 sceneData.points[line.point2index].hidden = pointsHidden;
@@ -635,6 +635,9 @@ void UI::DrawPlanesTab(App& app) {
                     planeName[0] = '\0';
                 }
             }
+            ImGui::SameLine();
+            ImGui::Checkbox("Labels", &sceneData.settings.showLabels[2]);  
+
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -675,9 +678,8 @@ void UI::DrawPlanesTab(App& app) {
             ImGui::TableSetColumnIndex(1);
             bool pointsHidden = sceneData.points[plane.point1index].hidden && 
                                 sceneData.points[plane.point2index].hidden && 
-                                sceneData.points[plane.point3index].hidden && 
-                                sceneData.settings.showCutPoints;
-
+                                sceneData.points[plane.point3index].hidden;
+                                
             if (ImGui::Checkbox("##Hide", &pointsHidden)) {
                 sceneData.points[plane.point1index].hidden = pointsHidden;
                 sceneData.points[plane.point2index].hidden = pointsHidden;
