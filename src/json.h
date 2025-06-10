@@ -79,7 +79,10 @@ public:
         std::vector<nlohmann::json> points, lines, planes;
 
         if (content.contains("points")) {
-            for (const auto &item : content["points"]) points.push_back(item);
+            for (const auto &item : content["points"]) {
+                if (item.value("name", "") != "deleted")
+                    points.push_back(item);
+            }
         } else
             points.push_back(content);
 
@@ -219,7 +222,6 @@ public:
                     const reader = new FileReader();
                     reader.onload = function(event) {
                         const content = event.target.result;
-                        // Directly pass to C++ (no UTF8ToString needed)
                         Module.handleFileLoad(content);
                     };
                     reader.readAsText(file);

@@ -55,8 +55,10 @@ struct SceneData {
         float lineThickness = 2.25f;
         float planeOpacity = 0.6f;
 
-        float offset[2] = {0.0f, 0.0f};
+        float offset[2] = {-75.0f, 0.0f};
         bool VSync = true;
+
+        std::string loadedFileName = "";
 
         bool showWelcomeWindow = true;
     };

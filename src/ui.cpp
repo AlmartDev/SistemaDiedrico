@@ -7,7 +7,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.10.5"
+#define PROGRAM_VERSION "0.10.7"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -108,6 +108,8 @@ void UI::DrawMenuBar(App& app) {
                     std::string path = app.GetJsonHandler().OpenFileDialog();
                     std::vector<nlohmann::json> data = app.GetJsonHandler().Load(path);
                     if (!data.empty()) {
+                        std::string fileName = path.substr(path.find_last_of('\\') + 1);
+                        sceneData.settings.loadedFileName = fileName;
                         app.LoadProject(data);
                     }
                 #else
@@ -150,6 +152,14 @@ void UI::DrawMenuBar(App& app) {
             ImGui::EndMenu();
         }
 
+        if (sceneData.settings.loadedFileName != "") {
+            float textWidth = ImGui::CalcTextSize(sceneData.settings.loadedFileName.c_str()).x;
+            float menuBarWidth = ImGui::GetWindowWidth();
+            float cursorX = (menuBarWidth - textWidth) / 2.0f;
+            ImGui::SetCursorPosX(cursorX);
+            ImGui::TextColored(ImVec4(0.2f, 0.5f, 1.0f, 1.0f), "%s", sceneData.settings.loadedFileName.c_str());
+        }
+
         ImGui::EndMainMenuBar();
     }
 
@@ -162,6 +172,8 @@ void UI::DrawMenuBar(App& app) {
             std::vector<nlohmann::json> data = app.GetJsonHandler().Load(filePath);
             std::cout << "Loaded file: " << filePath << std::endl;
             if (!data.empty()) {
+                std::string fileName = filePath.substr(filePath.find_last_of('/') + 1);
+                sceneData.settings.loadedFileName = fileName;
                 app.LoadProject(data);
             }
         }
@@ -339,7 +351,7 @@ void UI::DrawPointsTab(App& app) {
 }
 
 void UI::DrawTabsWindow(App& app) {
-    ImGui::Begin("Properties");
+    ImGui::Begin("Scene");
 
     if (ImGui::BeginTabBar("Tabs")) {
         if (ImGui::BeginTabItem("Points")) {
@@ -970,13 +982,8 @@ void UI::DrawDihedralViewport(App& app) {
     drawList->AddLine(p0, p1, lineColor, 2.5f); 
 
     // Small indicator lines
-    drawList->AddLine(ImVec2(p0.x + 4, p0.y + 5), ImVec2(p0.x + 25, p0.y + 5), lineColor, 2.0f);
-    drawList->AddLine(ImVec2(p1.x - 4, p1.y + 5), ImVec2(p1.x - 25, p1.y + 5), lineColor, 2.0f);
-
-    // Origin point
-    ImVec2 p2 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 - 8);
-    ImVec2 p3 = ImVec2(cursorPos.x + viewportSize.x / 2, cursorPos.y + viewportSize.y / 2 + 8);
-    drawList->AddLine(p2, p3, lineColor, 2.5f);
+    drawList->AddLine(ImVec2(p0.x + 4, p0.y + 5), ImVec2(p0.x + 30, p0.y + 5), lineColor, 2.0f);
+    drawList->AddLine(ImVec2(p1.x - 4, p1.y + 5), ImVec2(p1.x - 30, p1.y + 5), lineColor, 2.0f);
     
     // Draw points in 2D projection
     for (const auto& point : sceneData.points) {
@@ -1070,6 +1077,7 @@ void UI::DrawDihedralViewport(App& app) {
             }
         }
 
+        // V
         if (y1_r1 * y2_r1 <= 0) { 
             float t = -y1_r1 / (y2_r1 - y1_r1);
             float x_ground = x1 + t * (x2 - x1);
@@ -1092,6 +1100,7 @@ void UI::DrawDihedralViewport(App& app) {
             }
         }
 
+        // H
         if (y1_r2 * y2_r1 <= 0 && y1_r1 * y2_r2 <= 0) { 
             float t1 = -y1_r2 / (y2_r2 - y1_r2);
             float x_ground1 = x1 + t1 * (x2 - x1);

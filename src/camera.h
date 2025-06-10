@@ -8,7 +8,7 @@
 
 class Camera {
 public:
-    Camera(float distance = 4.5f);
+    Camera(float distance = 3.75f);
     
     glm::vec3 GetPosition() const;
     glm::mat4 GetViewMatrix() const;
@@ -30,8 +30,8 @@ private:
     float initialYaw = 135.0f; // Initial yaw
     float initialPitch = 25.0f; // Initial pitch
 
-    float m_yaw = 0.0f;   // Initial yaw
-    float m_pitch = 0.0f;   // Initial pitch
+    float m_yaw = 0.0f;
+    float m_pitch = 0.0f;
 };
 
 #endif // CAMERA_H

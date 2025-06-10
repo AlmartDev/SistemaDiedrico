@@ -36,6 +36,9 @@ void handleFileLoad(const std::string& content) {
     if (App::s_instance) {
         std::vector<nlohmann::json> result = handler->Load(handler->loadedPath);
         if (!result.empty()) {
+            // get the filename
+            std::string fileName = handler->loadedPath.substr(handler->loadedPath.find_last_of('/') + 1);
+            App::s_instance->GetSceneData().settings.loadedFileName = fileName;
             App::s_instance->LoadProject(result);
         }
     }
