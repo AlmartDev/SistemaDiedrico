@@ -36,9 +36,6 @@ void handleFileLoad(const std::string& content) {
     if (App::s_instance) {
         std::vector<nlohmann::json> result = handler->Load(handler->loadedPath);
         if (!result.empty()) {
-            // get the filename
-            std::string fileName = handler->loadedPath.substr(handler->loadedPath.find_last_of('/') + 1);
-            App::s_instance->GetSceneData().settings.loadedFileName = fileName;
             App::s_instance->LoadProject(result);
         }
     }
@@ -162,7 +159,7 @@ void App::HandleInput() {
         #endif
     }
 
-    if (glfwGetKey(m_window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS)
+    if (glfwGetKey(m_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         m_renderer.SetQuadrantLabelsVisible(!m_sceneData.settings.showQuadrantLabels);
 
     if (m_scrollY != 0) {
@@ -178,19 +175,24 @@ void App::HandleInput() {
 void App::LoadProject(std::vector<nlohmann::json> data) {
     if (data.empty()) return;
 
-    // Clear existing data (optional)
     m_sceneData.points.clear();
     m_sceneData.lines.clear();
     m_sceneData.planes.clear();
 
-    // Helper function to safely get JSON values with defaults
     auto getFloat = [](const nlohmann::json& j, const std::string& key, float def = 0.0f) {
         return j.contains(key) ? j[key].get<float>() : def;
     };
 
-    // Load points
+    GetCamera().ResetPosition();
+
     if (!data[0].empty()) {
-        for (const auto& point : data[0]) {
+        m_sceneData.settings.loadedFileName = data[0][0].value("name", "untitled");
+        m_sceneData.settings.worldScale = getFloat(data[0][0], "worldScale", 50.0f);
+    }
+
+    // Load points
+    if (!data[1].empty()) {
+        for (const auto& point : data[1]) {
             try {
                 SceneData::Point p;
                 p.name = point["name"].get<std::string>();
@@ -210,8 +212,8 @@ void App::LoadProject(std::vector<nlohmann::json> data) {
     }
 
     // Load lines
-    if (data.size() > 1 && !data[1].empty()) {
-        for (const auto& line : data[1]) {
+    if (data.size() > 1 && !data[2].empty()) {
+        for (const auto& line : data[2]) {
             try {
                 SceneData::Line l;
                 l.name = line["name"].get<std::string>();
@@ -259,8 +261,8 @@ void App::LoadProject(std::vector<nlohmann::json> data) {
     }
 
     // Load planes
-    if (data.size() > 2 && !data[2].empty()) {
-        for (const auto& plane : data[2]) {
+    if (data.size() > 2 && !data[3].empty()) {
+        for (const auto& plane : data[3]) {
             try {
                 SceneData::Plane p;
                 p.name = plane["name"].get<std::string>();
@@ -311,11 +313,13 @@ void App::LoadProject(std::vector<nlohmann::json> data) {
 void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
     std::vector<char*> pointNames, lineNames, planeNames;
 
+    float worldScale = m_sceneData.settings.worldScale;
+
     std::vector<glm::vec3> pointPositions, pointColors;
     for (const auto& point : m_sceneData.points) {
         if (point.hidden) continue;
         pointNames.push_back(const_cast<char*>(point.name.c_str()));
-        pointPositions.emplace_back(point.coords[0]/50, point.coords[2]/50, point.coords[1]/50);
+        pointPositions.emplace_back(point.coords[0]/worldScale, point.coords[2]/worldScale, point.coords[1]/worldScale);
         pointColors.emplace_back(point.color[0], point.color[1], point.color[2]);
     }
 
@@ -328,8 +332,8 @@ void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
         const auto& point2 = m_sceneData.points[line.point2index];
 
         linePositions.emplace_back(
-            glm::vec3(point1.coords[0]/50, point1.coords[2]/50, point1.coords[1]/50),
-            glm::vec3(point2.coords[0]/50, point2.coords[2]/50, point2.coords[1]/50)
+            glm::vec3(point1.coords[0]/worldScale, point1.coords[2]/worldScale, point1.coords[1]/worldScale),
+            glm::vec3(point2.coords[0]/worldScale, point2.coords[2]/worldScale, point2.coords[1]/worldScale)
         );
         lineColors.emplace_back(line.color[0], line.color[1], line.color[2]);
     }
@@ -346,9 +350,9 @@ void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
         const auto& point3 = m_sceneData.points[plane.point3index];
 
         planePositions.push_back({
-            glm::vec3(point1.coords[0]/50, point1.coords[2]/50, point1.coords[1]/50),
-            glm::vec3(point2.coords[0]/50, point2.coords[2]/50, point2.coords[1]/50),
-            glm::vec3(point3.coords[0]/50, point3.coords[2]/50, point3.coords[1]/50)
+            glm::vec3(point1.coords[0]/worldScale, point1.coords[2]/worldScale, point1.coords[1]/worldScale),
+            glm::vec3(point2.coords[0]/worldScale, point2.coords[2]/worldScale, point2.coords[1]/worldScale),
+            glm::vec3(point3.coords[0]/worldScale, point3.coords[2]/worldScale, point3.coords[1]/worldScale)
         });
         planeColors.emplace_back(plane.color[0], plane.color[1], plane.color[2]);
 

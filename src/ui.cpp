@@ -7,7 +7,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.12.1"
+#define PROGRAM_VERSION "0.12.3"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -230,6 +230,9 @@ void UI::DrawSettingsWindow(App& app) {
         ImGui::Checkbox("Show Dihedral System", &sceneData.settings.showDihedralSystem);
         renderer.SetDihedralsVisible(sceneData.settings.showDihedralSystem);
     }
+    else {
+        ImGui::Checkbox("Show Quadrant Labels", &sceneData.settings.showQuadrantLabels);
+    }
     
     ImGui::SliderFloat("Mouse Sensitivity", &sceneData.settings.mouseSensitivity, 0.0f, 2.0f);
     camera.SetSensitivity(sceneData.settings.mouseSensitivity); 
@@ -238,7 +241,8 @@ void UI::DrawSettingsWindow(App& app) {
     //camera.SetDistance(sceneData.settings.cameraDistance);
 
     ImGui::DragFloat2("Offset (X, Y)", sceneData.settings.offset, 0.75f);
-    ImGui::Checkbox("Show Quadrant Labels", &sceneData.settings.showQuadrantLabels);
+
+    ImGui::SliderFloat("World Scale", &sceneData.settings.worldScale, 20.0f, 250.0f);
 
     // Make "More Settings" button span the width of the window
     float buttonWidth = ImGui::GetContentRegionAvail().x;

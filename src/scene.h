@@ -51,6 +51,8 @@ struct SceneData {
         float cameraDistance;
         float fontSize = 14.0f;
 
+        float worldScale = 50.0f; // scale for coordinates
+
         float pointSize = 6.0f;
         float lineThickness = 1.5f;
         float planeOpacity = 0.6f;

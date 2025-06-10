@@ -76,7 +76,11 @@ public:
 
         file.close();
 #endif
-        std::vector<nlohmann::json> points, lines, planes;
+        std::vector<nlohmann::json> project, points, lines, planes;
+
+        if (content.contains("project")) {
+            project.push_back(content["project"]);
+        }
 
         if (content.contains("points")) {
             for (const auto &item : content["points"]) {
@@ -96,7 +100,7 @@ public:
         } else
             planes.push_back(nlohmann::json::array());
 
-        return {points, lines, planes};
+        return {project, points, lines, planes};
     }
 
     // LOAD ---------------------------------------------------------------
@@ -125,6 +129,16 @@ public:
 
     void Save(const std::string& filename, SceneData& sceneData) {
         nlohmann::json content;
+
+        #ifdef _WIN32
+            std::string name = filename.substr(filename.find_last_of("\\/") + 1);
+        #else
+            std::string name = filename.substr(filename.find_last_of('/') + 1);
+        #endif
+            content["project"] = {
+                {"name", name},
+                {"worldScale", sceneData.settings.worldScale},
+            };
 
         content["points"] = nlohmann::json::array();
         for (const auto& point : sceneData.points) {
