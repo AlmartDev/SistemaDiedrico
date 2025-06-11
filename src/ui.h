@@ -47,6 +47,7 @@ private:
 
     // translation data
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> translations;
+    std::vector<std::string> availableLanguages;
 
     std::string currentLanguage = "EN";
 };

@@ -1,0 +1,64 @@
+id,key,EN,ES
+0,menu_file,File,Archivo
+1,menu_help,Help,Ayuda
+2,menu_open,Open,Abrir
+3,menu_save,Save,Guardar
+4,menu_docs,Documentation,Documentación
+5,menu_about,About,Acerca de
+6,menu_exit,Quit,Salir
+7,menu_app,App,Aplicación
+8,menu_lang,Language,Idioma
+9,menu_reset_cam,Reset Camera,Reestablecer Cámara
+10,menu_clear_scene,Reset Scene,Reestablecer Escena
+11,menu_reset_settings,Reset Settings,Reestablecer Configuración
+12,about_author,Made by Alonso Martínez,Hecho por Alonso Martínez
+13,about_username,@almartdev on GitHub,@almartdev en GitHub
+14,settings_title,Scene Settings,Configuración
+15,settings_show_quadrant_labels,Show Quadrant Labels,Identificarlos Cuadrantes
+16,settings_mouse_sens,Mouse Sensitivity,Sensivilidad del Ratón
+17,settings_offset,"Offset (X,Y)",Desplazamiento
+18,settings_scale,"World Scale",Escala
+19,settings_more_settings,More Settings,Más Opciones
+20,settings_bg_color,BackgroundColor,Color del Fondo
+21,settings_dihedral_bg_color,Dihedral Bg Color,Color del Diedrico
+22,settings_dihedral_line_color,Dihedral Line Color,Color de Linea
+23,settings_vsync,Enable VSync,Habilitar VSync
+24,settings_invert_x,Invert Mouse X,Invertir Ratón X
+25,settings_invert_y,Invert Mouse Y,Invertir Ratón Y
+26,settings_axes_3d,3D axes,Ejes 3D
+27,settings_axes_cartesian,Cartesian Axes,Ejes Cartesianos
+28,settings_axes_dihedral,Only Dihedrals,Solo Diedros
+29,settings_axes_none,No Axes,Ningún eje
+30,settings_axes_type,Axes Type,Tipo de Ejes
+31,settings_show_dihedral,Show Dihedral System,Enseñar Diedros
+32,presets_no_planes_found,Plane presets not found,No se han encontrado Planos
+33,presets_no_lines_found,Line presets not found,No se han encontrado lineas
+34,presets_no_points_found,Point presets not found,No se han encontrado puntos
+35,presets_title,Presets,Preajustes
+36,presets_message,Select a preset to load,Selecciona un elemento predeterminado
+37,presets_points_available,Avaliable Point Presets,Puntos Predeterminados
+38,presets_lines_available,Avaliable Line Presets,Lineas Predeterminadas
+39,presets_planes_available,Avaliable Plane Presets,Planos Predeterminadas
+40,multi_close,Close,Cerrar
+41,multi_points,Points,Puntos
+42,multi_lines,Lines,Lineas
+43,multi_planes,Planes,Planos
+44,multi_point,Point,Punto
+45,multi_line,Line,Linea
+46,multi_plane,Plane,Plano
+47,multi_name,Name,Nombre
+48,welcome_title,Welcome!,Bienvenido
+49,welcome_message,Welcome to the Dihedral App!,Bienvenido a la Aplicación del Sistema Diedrico
+50,welcome_importance,IMPORTANT: This app is still under early development,IMPORTANTE: Este programa sigue en desarrollo
+51,tabs_coords,Coords,Coordenadas
+52,tabs_cuts,Show Cuts,Trazas
+53,tabs_labels,Labels,Enseñar Nombres
+54,tabs_title,Scene,Escena
+55,tabs_add_point,Add Point,Añadir Punto
+56,tabs_add_line,Add Line,Añadir Linea
+57,tabs_add_plane,Add Plane,Añadir Plano
+58,tabs_point_size,Point Size,Tamaño del Punto
+59,tabs_thickness,Line Thickness,Tamaño
+60,tabs_opacity,Plane Opacity,Transparencia
+61,tabs_select_points,Select Points,Elegir Puntos
+62,tabs_add_points,Add Points,Añadir Puntos

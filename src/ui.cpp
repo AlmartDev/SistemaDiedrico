@@ -8,14 +8,13 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.13"
+#define PROGRAM_VERSION "0.13.5"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
     #include "ImGuiFileDialogConfig.h"
 #endif
 
-// TODO: lenguage support
 // all text except for debug stuff is in this file
 
 void UI::SetupImGui(App& app) {
@@ -34,17 +33,17 @@ IMGUI_CHECKVERSION();
     const char* fontPath = "/assets/Roboto-Regular.ttf"; 
     const char* initPath = "/assets/imgui.ini";
 
-    const char* lenguagePath = "/assets/lenguages.csv";
+    const char* languagePath = "/assets/languages.csv";
 #else
     const char* fontPath = "./assets/Roboto-Regular.ttf"; 
     const char* initPath = "./assets/imgui.ini";
 
-    const char* lenguagePath = "./assets/lenguages.csv";
+    const char* languagePath = "./assets/languages.csv";
 #endif
     io.Fonts->AddFontFromFileTTF(fontPath, sceneData.settings.fontSize);
     ImGui::GetIO().IniFilename = initPath;
     
-    loadTranslations(lenguagePath);
+    loadTranslations(languagePath);
 
     // Initialize ImGui backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -114,6 +113,12 @@ void UI::loadTranslations(const std::string& path) {
         }
     }
 
+    availableLanguages.clear();
+    for (const auto& lang : languages) {
+        if (!lang.empty()) {
+            availableLanguages.push_back(lang);
+        }
+    }
     file.close();
 }
 
@@ -145,7 +150,6 @@ void UI::ShutdownImGui() {
 
 void UI::DrawUI(App& app) {
     currentLanguage = app.GetSceneData().settings.defaultLanguage;
-    std::cout << "Current language: " << currentLanguage << std::endl;
 
     DrawMenuBar(app);
     DrawSettingsWindow(app);
@@ -222,17 +226,20 @@ void UI::DrawMenuBar(App& app) {
         }
 
         if (ImGui::BeginMenu(SetText("menu_app", currentLanguage).c_str())) {
-            if (ImGui::BeginMenu(SetText("menu_lang", currentLanguage).c_str())) { // simple placeholder
-                ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.35f), "Loaded ./languages.csv");
-                if (ImGui::MenuItem("EN")) {
-                    sceneData.settings.defaultLanguage = "EN";
+            if (availableLanguages.size() > 1) {
+                if (ImGui::BeginMenu(SetText("menu_lang", currentLanguage).c_str())) {
+                    ImGui::TextColored(ImVec4(0.2f, 0.5f, 1.0f, 1.0f), "./languages.csv");
+                    for (const auto& lang : availableLanguages) {
+                        if (ImGui::MenuItem(lang.c_str(), nullptr, currentLanguage == lang)) {
+                            sceneData.settings.defaultLanguage = lang;
+                            currentLanguage = lang; // Update current language
+                        }
+                    }
+                    ImGui::EndMenu();
                 }
-                if (ImGui::MenuItem("ES")) {
-                    sceneData.settings.defaultLanguage = "ES";
-                }
-                ImGui::EndMenu();
+                
+                ImGui::Separator();
             }
-            ImGui::Separator();
             if (ImGui::MenuItem(SetText("menu_clear_scene", currentLanguage).c_str())) {
                 app.GetCamera().ResetPosition();
                 sceneData.points.clear();
@@ -345,8 +352,8 @@ void UI::DrawSettingsWindow(App& app) {
     // Store translated strings to keep them alive
     std::vector<std::string> axesTypeStrings = {
         SetText("settings_axes_3d", currentLanguage),
-        SetText("settings_axes_dihedral", currentLanguage),
         SetText("settings_axes_cartesian", currentLanguage),
+        SetText("settings_axes_dihedral", currentLanguage),
         SetText("settings_axes_none", currentLanguage)
     };
     std::vector<const char*> axesTypes;
@@ -421,16 +428,16 @@ void UI::DrawPointsTab(App& app) {
     static char pointName[128] = "";
     static float pointCoords[3] = {0.0f, 0.0f, 0.0f};
 
-    ImGui::InputText("Name", pointName, sizeof(pointName), ImGuiInputTextFlags_CallbackCharFilter,
+    ImGui::InputText(SetText("multi_name", currentLanguage).c_str(), pointName, sizeof(pointName), ImGuiInputTextFlags_CallbackCharFilter,
         [](ImGuiInputTextCallbackData* data) -> int {
             if (data->EventChar >= 'a' && data->EventChar <= 'z') {
                 data->EventChar = data->EventChar - 'a' + 'A';
             }
             return 0;
         });
-    ImGui::InputFloat3("Coordinates", pointCoords);
+    ImGui::InputFloat3(SetText("tabs_coords", currentLanguage).c_str(), pointCoords);
 
-    if (ImGui::Button("Add Point")) {
+    if (ImGui::Button(SetText("tabs_add_point", currentLanguage).c_str())) {
         std::string name = pointName;
         name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
         name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
@@ -452,13 +459,13 @@ void UI::DrawPointsTab(App& app) {
     }
 
     ImGui::SameLine();
-    ImGui::Checkbox("Show Cuts", &sceneData.settings.showCutPoints);
+    ImGui::Checkbox(SetText("tabs_cuts", currentLanguage).c_str(), &sceneData.settings.showCutPoints);
     renderer.SetCutPointVisible(sceneData.settings.showCutPoints);
 
     ImGui::SameLine();
-    ImGui::Checkbox("Labels", &sceneData.settings.showLabels[0]);
+    ImGui::Checkbox(SetText("tabs_labels", currentLanguage).c_str(), &sceneData.settings.showLabels[0]);
 
-    ImGui::DragFloat("Point Size", &sceneData.settings.pointSize, 0.1f, 0.1f, 100.0f);
+    ImGui::DragFloat(SetText("tabs_point_size", currentLanguage).c_str(), &sceneData.settings.pointSize, 0.1f, 0.1f, 100.0f);
 
     ImGui::Separator();
     
@@ -516,15 +523,15 @@ void UI::DrawTabsWindow(App& app) {
     ImGui::Begin(SetText("tabs_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     if (ImGui::BeginTabBar("Tabs")) {
-        if (ImGui::BeginTabItem("Points")) {
+        if (ImGui::BeginTabItem(SetText("multi_points", currentLanguage).c_str())) {
             DrawPointsTab(app);
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Lines")) {
+        if (ImGui::BeginTabItem(SetText("multi_lines", currentLanguage).c_str())) {
             DrawLinesTab(app);
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Planes")) {
+        if (ImGui::BeginTabItem(SetText("multi_planes", currentLanguage).c_str())) {
             DrawPlanesTab(app);
             ImGui::EndTabItem();
         }
@@ -540,7 +547,7 @@ void UI::DrawLinesTab(App& app) {
     auto& camera = app.GetCamera();
 
     static char lineName[128] = "";
-    ImGui::InputText("Name", lineName, sizeof(lineName), ImGuiInputTextFlags_CallbackCharFilter,
+    ImGui::InputText(SetText("multi_name", currentLanguage).c_str(), lineName, sizeof(lineName), ImGuiInputTextFlags_CallbackCharFilter,
         [](ImGuiInputTextCallbackData* data) -> int {
             if (data->EventChar >= 'A' && data->EventChar <= 'Z') {
                 data->EventChar = data->EventChar - 'A' + 'a';
@@ -573,15 +580,15 @@ void UI::DrawLinesTab(App& app) {
         if (visiblePointIndices[i] == selectedPoint2) selectedIdx2 = static_cast<int>(i);
     }
 
-    ImGui::Combo("Point 1", &selectedIdx1, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
-    ImGui::Combo("Point 2", &selectedIdx2, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+    ImGui::Combo((SetText("multi_point", currentLanguage) + " 1").c_str(), &selectedIdx1, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+    ImGui::Combo((SetText("multi_point", currentLanguage) + " 2").c_str(), &selectedIdx2, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
 
     selectedPoint1 = getOriginalIndex(selectedIdx1);
     selectedPoint2 = getOriginalIndex(selectedIdx2);
 
-    ImGui::DragFloat("Line Thickness", &sceneData.settings.lineThickness, 0.1f, 0.1f, 100.0f);
+    ImGui::DragFloat((SetText("tabs_thickness", currentLanguage) + "##Thickness").c_str(), &sceneData.settings.lineThickness, 0.1f, 0.1f, 100.0f);
 
-    if (ImGui::Button("Add Line")) {
+    if (ImGui::Button(SetText("tabs_add_line", currentLanguage).c_str())) {
         // Check that both points are valid and not the same
         if (selectedPoint1 != selectedPoint2 &&
             selectedPoint1 >= 0 && selectedPoint2 >= 0 &&
@@ -670,7 +677,7 @@ void UI::DrawLinesTab(App& app) {
             }
 
             ImGui::TableSetColumnIndex(4);
-            if (ImGui::Button("Delete", ImVec2(-FLT_MIN, 0))) {
+            if (ImGui::Button("X", ImVec2(-FLT_MIN, 0))) {
                 // Store indices before erasing
                 int p1 = line.point1index;
                 int p2 = line.point2index;
@@ -703,12 +710,12 @@ void UI::DrawPlanesTab(App& app) {
     auto& sceneData = app.GetSceneData();
     
     static char planeName[128] = "";
-    ImGui::InputText("Name", planeName, sizeof(planeName));
-    ImGui::DragFloat("Plane Opacity", &sceneData.settings.planeOpacity, 0.01f, 0.1f, 1.0f);
+    ImGui::InputText(SetText("multi_name", currentLanguage).c_str(), planeName, sizeof(planeName));
+    ImGui::DragFloat(SetText("tabs_opacity", currentLanguage).c_str(), &sceneData.settings.planeOpacity, 0.01f, 0.1f, 1.0f);
 
     // tabs to create point with coords or select existing points
     if (ImGui::BeginTabBar("PlaneTabs")) {
-        if (ImGui::BeginTabItem("Select Points")) {
+        if (ImGui::BeginTabItem(SetText("tabs_select_points", currentLanguage).c_str())) {
             static int selectedPoint1 = -1;
             static int selectedPoint2 = -1;
             static int selectedPoint3 = -1;
@@ -736,9 +743,9 @@ void UI::DrawPlanesTab(App& app) {
                 if (visiblePointIndices[i] == selectedPoint3) selectedIdx3 = static_cast<int>(i);
             }
 
-            ImGui::Combo("Point 1", &selectedIdx1, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
-            ImGui::Combo("Point 2", &selectedIdx2, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
-            ImGui::Combo("Point 3", &selectedIdx3, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+            ImGui::Combo((SetText("multi_point", currentLanguage) + " 1").c_str(), &selectedIdx1, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+            ImGui::Combo((SetText("multi_point", currentLanguage) + " 2").c_str(), &selectedIdx2, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
+            ImGui::Combo((SetText("multi_point", currentLanguage) + " 3").c_str(), &selectedIdx3, visiblePointNames.data(), static_cast<int>(visiblePointNames.size()));
 
             selectedPoint1 = getOriginalIndex(selectedIdx1);
             selectedPoint2 = getOriginalIndex(selectedIdx2);
@@ -765,15 +772,15 @@ void UI::DrawPlanesTab(App& app) {
             }
 
             ImGui::SameLine();
-            ImGui::Checkbox("Labels", &sceneData.settings.showLabels[2]);
+            ImGui::Checkbox(SetText("tabs_labels", currentLanguage).c_str(), &sceneData.settings.showLabels[2]);
 
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Add Coords")) {
+        if (ImGui::BeginTabItem(SetText("tabs_add_points", currentLanguage).c_str())) {
             static float planeCoords[3] = {0.0f, 0.0f, 0.0f};
-            ImGui::InputFloat3("Coords", planeCoords);
+            ImGui::InputFloat3(SetText("tabs_coords", currentLanguage).c_str(), planeCoords);
 
-            if (ImGui::Button("Add Plane")) {
+            if (ImGui::Button(SetText("tabs_add_plane", currentLanguage).c_str())) {
                 std::string name = planeName;
                 name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
                 name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
