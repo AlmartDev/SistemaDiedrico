@@ -55,7 +55,7 @@ App::App() : m_window(nullptr) {
     s_instance = this;
 }
 
-bool App::Initialize() {
+bool App::Initialize(int argc, char** argv) {
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW\n";
         return false;
@@ -107,6 +107,14 @@ bool App::Initialize() {
     if (!m_renderer.Initialize()) {
         std::cerr << "Failed to initialize renderer\n";
         return false;
+    }
+
+    // parse command line arguments to get language
+    for (int i = 0; i < argc; ++i) {
+        if (std::string(argv[i]) == "--lang" && i + 1 < argc) {
+            m_sceneData.settings.defaultLanguage = argv[i + 1];
+            break;
+        }
     }
 
     return true;

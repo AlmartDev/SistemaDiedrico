@@ -28,6 +28,15 @@
         };
     </script>
     <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const lang = urlParams.get('lang') || 'EN';
+
+        Module.language = lang;
+    </script>
+    <script>
+        Module['arguments'] = ['--lang=' + lang];
+    </script>
+    <script>
         var Module = {
             canvas: document.getElementById('canvas'),
             onRuntimeInitialized: function() {

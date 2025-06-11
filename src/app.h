@@ -23,7 +23,7 @@ public:
 
     App();
 
-    bool Initialize();
+    bool Initialize(int argc = 0, char** argv = nullptr);
     void Run();
     void Frame();
     void Shutdown();
