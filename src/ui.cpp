@@ -4,15 +4,19 @@
 #include <algorithm>
 #include <string>
 #include <string>
+#include <sstream>
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.12.3"
+#define PROGRAM_VERSION "0.13"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
     #include "ImGuiFileDialogConfig.h"
 #endif
+
+// TODO: lenguage support
+// all text except for debug stuff is in this file
 
 void UI::SetupImGui(App& app) {
     auto& sceneData = app.GetSceneData();
@@ -29,12 +33,18 @@ IMGUI_CHECKVERSION();
 #ifdef __EMSCRIPTEN__
     const char* fontPath = "/assets/Roboto-Regular.ttf"; 
     const char* initPath = "/assets/imgui.ini";
+
+    const char* lenguagePath = "/assets/lenguages.csv";
 #else
     const char* fontPath = "./assets/Roboto-Regular.ttf"; 
     const char* initPath = "./assets/imgui.ini";
+
+    const char* lenguagePath = "./assets/lenguages.csv";
 #endif
     io.Fonts->AddFontFromFileTTF(fontPath, sceneData.settings.fontSize);
     ImGui::GetIO().IniFilename = initPath;
+    
+    loadTranslations(lenguagePath);
 
     // Initialize ImGui backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);
@@ -46,6 +56,87 @@ IMGUI_CHECKVERSION();
 #endif
 }
 
+// TRANSLATIONS -----------------------------------------------------
+void UI::loadTranslations(const std::string& path) {
+    translations.clear(); // Clear existing translations
+    
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Error opening translation file: " << path << std::endl;
+        return;
+    }
+
+    std::string line;
+    
+    // Read header line to get languages
+    if (!std::getline(file, line)) {
+        std::cerr << "Translation file is empty" << std::endl;
+        return;
+    }
+    
+    std::vector<std::string> languages;
+    std::istringstream headerStream(line);
+    std::string cell;
+    
+    // Skip first two columns (id and key)
+    std::getline(headerStream, cell, ',');
+    std::getline(headerStream, cell, ',');
+    
+    // Get language codes from remaining columns
+    while (std::getline(headerStream, cell, ',')) {
+        languages.push_back(cell);
+    }
+
+    // Process each line of translations
+    while (std::getline(file, line)) {
+        if (line.empty()) continue; // Skip empty lines
+        
+        std::istringstream lineStream(line);
+        std::string id, key;
+        
+        // Get id and key
+        if (!std::getline(lineStream, id, ',')) continue;
+        if (!std::getline(lineStream, key, ',')) continue;
+        
+        if (key.empty()) continue; // Skip lines without keys
+        
+        // Get translations for each language
+        std::vector<std::string> texts;
+        while (std::getline(lineStream, cell, ',')) {
+            texts.push_back(cell);
+        }
+        
+        // Store translations in the map
+        for (size_t i = 0; i < texts.size() && i < languages.size(); ++i) {
+            if (!texts[i].empty()) { // Only store non-empty translations
+                translations[key][languages[i]] = texts[i];
+            }
+        }
+    }
+
+    file.close();
+}
+
+std::string UI::SetText(const std::string& key, const std::string& language) {
+    // Try to find the translation
+    auto keyIt = translations.find(key);
+    if (keyIt != translations.end()) {
+        auto langIt = keyIt->second.find(language);
+        if (langIt != keyIt->second.end()) {
+            return langIt->second;
+        }
+        // Fallback to English if current language not found
+        langIt = keyIt->second.find("EN");
+        if (langIt != keyIt->second.end()) {
+            return langIt->second;
+        }
+    }
+    
+    // Return the key itself if no translation found
+    return key;
+}
+// TRANSLATIONS -----------------------------------------------------
+
 void UI::ShutdownImGui() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -53,6 +144,9 @@ void UI::ShutdownImGui() {
 }
 
 void UI::DrawUI(App& app) {
+    currentLanguage = app.GetSceneData().settings.defaultLanguage;
+    std::cout << "Current language: " << currentLanguage << std::endl;
+
     DrawMenuBar(app);
     DrawSettingsWindow(app);
     DrawPresetWindow(app);
@@ -99,8 +193,8 @@ void UI::DrawMenuBar(App& app) {
     int height = app.GetWindowHeight();
 
     if (ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu("File")) {
-                if (ImGui::MenuItem("Open", "Ctrl+O")) {
+        if (ImGui::BeginMenu(SetText("menu_file", currentLanguage).c_str())) {
+                if (ImGui::MenuItem(SetText("menu_open", currentLanguage).c_str(), "Ctrl+O")) {
                 #ifdef __EMSCRIPTEN__
                     JsonHandler* handler = JsonHandlerInstance();
                     handler->OpenFileDialog();
@@ -116,7 +210,7 @@ void UI::DrawMenuBar(App& app) {
                     OpenFileDialog(app);
                 #endif
                 }
-            if (ImGui::MenuItem("Save", "Ctrl+S")) {
+            if (ImGui::MenuItem(SetText("menu_save", currentLanguage).c_str(), "Ctrl+S")) {
             #if defined(__EMSCRIPTEN__) || defined(_WIN32)
                 std::string path = app.GetJsonHandler().SaveFileDialog();
                 app.GetJsonHandler().Save(path, app.GetSceneData());
@@ -127,26 +221,51 @@ void UI::DrawMenuBar(App& app) {
             ImGui::EndMenu();
         }
 
-        #ifndef __EMSCRIPTEN__
-        if (ImGui::BeginMenu("App")) {
-            if (ImGui::MenuItem("Exit")) {
+        if (ImGui::BeginMenu(SetText("menu_app", currentLanguage).c_str())) {
+            if (ImGui::BeginMenu(SetText("menu_lang", currentLanguage).c_str())) { // simple placeholder
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 0.35f), "Loaded ./languages.csv");
+                if (ImGui::MenuItem("EN")) {
+                    sceneData.settings.defaultLanguage = "EN";
+                }
+                if (ImGui::MenuItem("ES")) {
+                    sceneData.settings.defaultLanguage = "ES";
+                }
+                ImGui::EndMenu();
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem(SetText("menu_clear_scene", currentLanguage).c_str())) {
+                app.GetCamera().ResetPosition();
+                sceneData.points.clear();
+                sceneData.lines.clear();
+                sceneData.planes.clear();
+                sceneData.settings = SceneData::Settings();
+            }
+            if (ImGui::MenuItem(SetText("menu_reset_cam", currentLanguage).c_str())) {
+                app.GetCamera().ResetPosition();
+            }
+            if (ImGui::MenuItem(SetText("menu_reset_settings", currentLanguage).c_str())) {
+                sceneData.settings = SceneData::Settings();
+            }
+            
+            #ifndef __EMSCRIPTEN__
+            if (ImGui::MenuItem(SetText("menu_exit", currentLanguage).c_str())) {
                 glfwSetWindowShouldClose(app.GetWindow(), true);
             }
+            #endif
             ImGui::EndMenu();
         }
-        #endif
 
-        if (ImGui::BeginMenu("Help")) {
+        if (ImGui::BeginMenu(SetText("menu_help", currentLanguage).c_str())) {
             if (ImGui::MenuItem("GitHub")) {
                 OpenURL("https://github.com/AlmartDev/SistemaDiedrico");
             }
-            if (ImGui::MenuItem("Documentation")) {
+            if (ImGui::MenuItem(SetText("menu_docs", currentLanguage).c_str())) {
                 ImGui::Text("Documentation is not available yet.");
             }
-            if (ImGui::BeginMenu("About")) {
-                ImGui::Text("Version %s", PROGRAM_VERSION);
-                ImGui::Text("Made by Alonso Martínez");
-                ImGui::Text("@almartdev on GitHub");
+            if (ImGui::BeginMenu(SetText("menu_about", currentLanguage).c_str())) {
+                ImGui::Text("v%s", PROGRAM_VERSION);
+                ImGui::Text(SetText("about_author", currentLanguage).c_str());
+                ImGui::Text(SetText("about_username", currentLanguage).c_str());
                 ImGui::EndMenu();
             }
             ImGui::EndMenu();
@@ -197,17 +316,17 @@ void UI::DrawMenuBar(App& app) {
         // it has to be exacly in the middle of the screen
         ImGui::SetNextWindowPos(ImVec2(width / 2 - 150, height / 2 - 75), ImGuiCond_Always);
 
-        if (ImGui::Begin("README!", &sceneData.settings.showWelcomeWindow,
+        if (ImGui::Begin(SetText("welcome_title", currentLanguage).c_str(), &sceneData.settings.showWelcomeWindow,
                          ImGuiWindowFlags_NoMove |
                          ImGuiWindowFlags_AlwaysAutoResize |
                          ImGuiWindowFlags_NoCollapse |
                          ImGuiWindowFlags_NoResize)) {
-            ImGui::Text("Welcome to the Dihedral System App!");
-            ImGui::Text("IMPORTANT: This app is still in early development.");
+            ImGui::Text(SetText("welcome_message", currentLanguage).c_str());
+            ImGui::Text(SetText("welcome_importance", currentLanguage).c_str());
             ImGui::Separator();
-            ImGui::Text("Version %s - WEB", PROGRAM_VERSION);
-            ImGui::Text("Made by Alonso Martínez");
-            ImGui::Text("@almartdev on GitHub");
+            ImGui::Text("v%s - WEB", PROGRAM_VERSION);
+            ImGui::Text(SetText("about_author", currentLanguage).c_str());
+            ImGui::Text(SetText("about_username", currentLanguage).c_str());
         }
         ImGui::End();
     }
@@ -220,33 +339,47 @@ void UI::DrawSettingsWindow(App& app) {
     auto& camera = app.GetCamera();
     auto& renderer = app.GetRenderer();
 
-    ImGui::Begin("3D Representation Settings");
+    ImGui::SetNextWindowPos(ImVec2(60, 60), ImGuiCond_FirstUseEver);
+    ImGui::Begin(SetText("settings_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    const char* axesTypes[] = {"3D Axes", "Cartesian Axes", "Dihedral Axes ONLY"};
-    ImGui::Combo("Axes Type", &sceneData.settings.axesType, axesTypes, IM_ARRAYSIZE(axesTypes));
+    // Store translated strings to keep them alive
+    std::vector<std::string> axesTypeStrings = {
+        SetText("settings_axes_3d", currentLanguage),
+        SetText("settings_axes_dihedral", currentLanguage),
+        SetText("settings_axes_cartesian", currentLanguage),
+        SetText("settings_axes_none", currentLanguage)
+    };
+    std::vector<const char*> axesTypes;
+    for (const auto& s : axesTypeStrings) axesTypes.push_back(s.c_str());
+    ImGui::Combo(SetText("settings_axes_type", currentLanguage).c_str(), &sceneData.settings.axesType, axesTypes.data(), static_cast<int>(axesTypes.size()));
     renderer.SetAxesType(sceneData.settings.axesType);
 
     if (sceneData.settings.axesType != 2) {
-        ImGui::Checkbox("Show Dihedral System", &sceneData.settings.showDihedralSystem);
+        ImGui::Checkbox(SetText("settings_show_dihedral", currentLanguage).c_str(), &sceneData.settings.showDihedralSystem);
         renderer.SetDihedralsVisible(sceneData.settings.showDihedralSystem);
+    } else {
+        ImGui::Checkbox(SetText("settings_show_quadrant_labels", currentLanguage).c_str(), &sceneData.settings.showQuadrantLabels);
     }
-    else {
-        ImGui::Checkbox("Show Quadrant Labels", &sceneData.settings.showQuadrantLabels);
-    }
-    
-    ImGui::SliderFloat("Mouse Sensitivity", &sceneData.settings.mouseSensitivity, 0.0f, 2.0f);
-    camera.SetSensitivity(sceneData.settings.mouseSensitivity); 
-    
+
+    ImGui::SliderFloat(SetText("settings_mouse_sens", currentLanguage).c_str(), &sceneData.settings.mouseSensitivity, 0.0f, 2.0f);
+    camera.SetSensitivity(sceneData.settings.mouseSensitivity);
+
     //ImGui::SliderFloat("Camera Distance", &sceneData.settings.cameraDistance, 0.1f, 25.0f);
     //camera.SetDistance(sceneData.settings.cameraDistance);
 
     ImGui::DragFloat2("Offset (X, Y)", sceneData.settings.offset, 0.75f);
 
-    ImGui::SliderFloat("World Scale", &sceneData.settings.worldScale, 20.0f, 250.0f);
+    // Show scale only while the slider is being actively dragged
+    bool scaleChanged = ImGui::SliderFloat(SetText("settings_scale", currentLanguage).c_str(), &sceneData.settings.worldScale, 25.0f, 125.0f);
+    if (ImGui::IsItemActive()) {
+        renderer.SetShowScale(true, sceneData.settings.worldScale);
+    } else {
+        renderer.SetShowScale(false, sceneData.settings.worldScale);
+    }
 
     // Make "More Settings" button span the width of the window
     float buttonWidth = ImGui::GetContentRegionAvail().x;
-    if (ImGui::Button("More Settings", ImVec2(buttonWidth, 0))) {
+    if (ImGui::Button(SetText("settings_more_settings", currentLanguage).c_str(), ImVec2(buttonWidth, 0))) {
         ImGui::OpenPopup("More Settings");
     }
 
@@ -254,18 +387,18 @@ void UI::DrawSettingsWindow(App& app) {
 
     // popup
     if (ImGui::BeginPopupModal("More Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::ColorEdit3("Background Color", sceneData.settings.backgroundColor);
-        ImGui::ColorEdit3("Dihedral Bg Color", sceneData.settings.dihedralBackgroundColor);
-        ImGui::ColorEdit3("Dihedral Line Color", sceneData.settings.dihedralLineColor);
+        ImGui::ColorEdit3(SetText("settings_bg_color", currentLanguage).c_str(), sceneData.settings.backgroundColor);
+        ImGui::ColorEdit3(SetText("settings_dihedral_bg_color", currentLanguage).c_str(), sceneData.settings.dihedralBackgroundColor);
+        ImGui::ColorEdit3(SetText("settings_dihedral_line_color", currentLanguage).c_str(), sceneData.settings.dihedralLineColor);
 
-        ImGui::Checkbox("Enable VSync", &sceneData.settings.VSync);
+        ImGui::Checkbox(SetText("settings_vsync", currentLanguage).c_str(), &sceneData.settings.VSync);
 
-        ImGui::Checkbox("Invert MouseX", &sceneData.settings.invertMouse[0]);
+        ImGui::Checkbox(SetText("settings_invert_x", currentLanguage).c_str(), &sceneData.settings.invertMouse[0]);
         ImGui::SameLine();
-        ImGui::Checkbox("Invert MouseY", &sceneData.settings.invertMouse[1]);
+        ImGui::Checkbox(SetText("settings_invert_y", currentLanguage).c_str(), &sceneData.settings.invertMouse[1]);
 
         ImGui::Separator();
-        if (ImGui::Button("Close")) {
+        if (ImGui::Button(SetText("multi_close", currentLanguage).c_str())) {
             ImGui::CloseCurrentPopup();
         }
 
@@ -288,7 +421,13 @@ void UI::DrawPointsTab(App& app) {
     static char pointName[128] = "";
     static float pointCoords[3] = {0.0f, 0.0f, 0.0f};
 
-    ImGui::InputText("Name", pointName, sizeof(pointName));
+    ImGui::InputText("Name", pointName, sizeof(pointName), ImGuiInputTextFlags_CallbackCharFilter,
+        [](ImGuiInputTextCallbackData* data) -> int {
+            if (data->EventChar >= 'a' && data->EventChar <= 'z') {
+                data->EventChar = data->EventChar - 'a' + 'A';
+            }
+            return 0;
+        });
     ImGui::InputFloat3("Coordinates", pointCoords);
 
     if (ImGui::Button("Add Point")) {
@@ -328,10 +467,10 @@ void UI::DrawPointsTab(App& app) {
     if (ImGui::BeginTable("PointTable", 4, ImGuiTableFlags_NoHostExtendX                
                                          | ImGuiTableFlags_RowBg  
                                          | ImGuiTableFlags_Resizable )) {
-        ImGui::TableSetupColumn(" Name");
-        ImGui::TableSetupColumn("Coords");
-        ImGui::TableSetupColumn("Color");
-        ImGui::TableSetupColumn("Delete");
+        ImGui::TableSetupColumn(" Name", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+        ImGui::TableSetupColumn("Coords", ImGuiTableColumnFlags_WidthStretch, 0.0f);
+        ImGui::TableSetupColumn("Color", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+        ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableHeadersRow();
 
         for (size_t i = 0; i < sceneData.points.size(); ++i) {
@@ -349,23 +488,21 @@ void UI::DrawPointsTab(App& app) {
 
             ImGui::TableSetColumnIndex(1);
             ImGui::PushID(static_cast<int>(i));
-            // Make the DragFloat3 as wide as possible in the cell
-            float cellWidth = ImGui::GetContentRegionAvail().x;
-            ImGui::SetNextItemWidth(cellWidth);
+            ImGui::SetNextItemWidth(-FLT_MIN); // Use all available width in the cell
             ImGui::DragFloat3("", point.coords, 0.1f);
             ImGui::PopID();
 
             ImGui::TableSetColumnIndex(2);
-            if (ImGui::ColorEdit4("##Color", (float*)&color, 
-                        ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
-                point.color[0] = color.x;
-                point.color[1] = color.y;
-                point.color[2] = color.z;
+            if (ImGui::ColorEdit4("##Color", (float*)&color,
+                ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
+            point.color[0] = color.x;
+            point.color[1] = color.y;
+            point.color[2] = color.z;
             }
 
             ImGui::TableSetColumnIndex(3);
             if (ImGui::Button("X")) {
-                app.DeletePoint(point);
+            app.DeletePoint(point);
             }
             ImGui::PopID();
         }
@@ -375,7 +512,8 @@ void UI::DrawPointsTab(App& app) {
 }
 
 void UI::DrawTabsWindow(App& app) {
-    ImGui::Begin("Scene");
+    ImGui::SetNextWindowPos(ImVec2(60, 300), ImGuiCond_FirstUseEver);
+    ImGui::Begin(SetText("tabs_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     if (ImGui::BeginTabBar("Tabs")) {
         if (ImGui::BeginTabItem("Points")) {
@@ -402,7 +540,13 @@ void UI::DrawLinesTab(App& app) {
     auto& camera = app.GetCamera();
 
     static char lineName[128] = "";
-    ImGui::InputText("Name", lineName, sizeof(lineName));
+    ImGui::InputText("Name", lineName, sizeof(lineName), ImGuiInputTextFlags_CallbackCharFilter,
+        [](ImGuiInputTextCallbackData* data) -> int {
+            if (data->EventChar >= 'A' && data->EventChar <= 'Z') {
+                data->EventChar = data->EventChar - 'A' + 'a';
+            }
+            return 0;
+        });
 
     static int selectedPoint1 = -1;
     static int selectedPoint2 = -1;
@@ -438,7 +582,12 @@ void UI::DrawLinesTab(App& app) {
     ImGui::DragFloat("Line Thickness", &sceneData.settings.lineThickness, 0.1f, 0.1f, 100.0f);
 
     if (ImGui::Button("Add Line")) {
-        if (selectedPoint1 != selectedPoint2) {
+        // Check that both points are valid and not the same
+        if (selectedPoint1 != selectedPoint2 &&
+            selectedPoint1 >= 0 && selectedPoint2 >= 0 &&
+            selectedPoint1 < static_cast<int>(sceneData.points.size()) &&
+            selectedPoint2 < static_cast<int>(sceneData.points.size())) {
+
             std::string name = lineName;
             name.erase(name.find_last_not_of(" \t\n\r\f\v") + 1);
             name.erase(0, name.find_first_not_of(" \t\n\r\f\v"));
@@ -446,8 +595,8 @@ void UI::DrawLinesTab(App& app) {
             if (name.empty()) {
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
-            } else if (std::any_of(sceneData.points.begin(), sceneData.points.end(),
-                [&](const SceneData::Point& p) { return p.name == name; })) {
+            } else if (std::any_of(sceneData.lines.begin(), sceneData.lines.end(),
+                [&](const SceneData::Line& l) { return l.name == name; })) {
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
             } else if (sceneData.points[selectedPoint1].coords == sceneData.points[selectedPoint2].coords) {
@@ -471,14 +620,18 @@ void UI::DrawLinesTab(App& app) {
 
     // Draw line list with better styling
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
-    if (ImGui::BeginTable("LineTable", 5, ImGuiTableFlags_NoHostExtendX                
-                                        | ImGuiTableFlags_RowBg  
-                                        | ImGuiTableFlags_Resizable )) {
-        ImGui::TableSetupColumn("Name");
-        ImGui::TableSetupColumn("Hide Points");
-        ImGui::TableSetupColumn("TEST:Visibility*");
-        ImGui::TableSetupColumn("Color");
-        ImGui::TableSetupColumn("Delete");
+    if (ImGui::BeginTable("LineTable", 5, 
+        ImGuiTableFlags_NoHostExtendX | 
+        ImGuiTableFlags_RowBg | 
+        ImGuiTableFlags_Resizable | 
+        ImGuiTableFlags_SizingStretchSame)) {
+        
+        // Set column widths - first 4 columns fixed, last column takes remaining space
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.3f);
+        ImGui::TableSetupColumn("Hide Points", ImGuiTableColumnFlags_WidthFixed, 65.0f);
+        ImGui::TableSetupColumn("Visibility", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableSetupColumn("Color", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+        ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableHeadersRow();
 
         for (size_t i = 0; i < sceneData.lines.size(); ++i) {
@@ -490,43 +643,51 @@ void UI::DrawLinesTab(App& app) {
             ImGui::TableNextRow();
 
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%s (%c)", line.name.c_str(), line.name.empty() ? '?' : line.name[0]);
-
-            /*ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%s --> %s",
-                sceneData.points[line.point1index].name.c_str(),
-                sceneData.points[line.point2index].name.c_str());
-            */
+            ImGui::Text("%s", line.name.c_str());
 
             ImGui::TableSetColumnIndex(1);
-            bool pointsHidden = sceneData.points[line.point1index].hidden;
-            if (ImGui::Checkbox("##Hide", &pointsHidden)) {
-                sceneData.points[line.point1index].hidden = pointsHidden;
-                sceneData.points[line.point2index].hidden = pointsHidden;
+            if (line.point1index >= 0 && line.point1index < static_cast<int>(sceneData.points.size()) &&
+                line.point2index >= 0 && line.point2index < static_cast<int>(sceneData.points.size())) {
+                bool pointsHidden = sceneData.points[line.point1index].hidden;
+                if (ImGui::Checkbox("##Hide", &pointsHidden)) {
+                    sceneData.points[line.point1index].hidden = pointsHidden;
+                    sceneData.points[line.point2index].hidden = pointsHidden;
+                }
+                ImGui::SameLine();
+                ImGui::Text("Hide");
             }
 
             ImGui::TableSetColumnIndex(2);
             ImGui::Checkbox("##Visibility", &line.showVisibility);
+            ImGui::SameLine();
+            ImGui::Text("Visible");
 
             ImGui::TableSetColumnIndex(3);
-            if (ImGui::ColorEdit4("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
+            if (ImGui::ColorEdit3("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
                 line.color[0] = color.x;
                 line.color[1] = color.y;
                 line.color[2] = color.z;
             }
 
             ImGui::TableSetColumnIndex(4);
-            if (ImGui::Button("X")) {
+            if (ImGui::Button("Delete", ImVec2(-FLT_MIN, 0))) {
+                // Store indices before erasing
+                int p1 = line.point1index;
+                int p2 = line.point2index;
+                bool p1User = (p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) ? 
+                    sceneData.points[p1].userCreated : false;
+                bool p2User = (p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) ? 
+                    sceneData.points[p2].userCreated : false;
+
                 sceneData.lines.erase(sceneData.lines.begin() + i);
-                if (!sceneData.points[line.point1index].userCreated) {
-                    app.DeletePoint(sceneData.points[line.point1index]);
+                if (!p1User && p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) {
+                    app.DeletePoint(sceneData.points[p1]);
                 }
-                if (!sceneData.points[line.point2index].userCreated) {
-                    app.DeletePoint(sceneData.points[line.point2index]);
+                if (!p2User && p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) {
+                    app.DeletePoint(sceneData.points[p2]);
                 }
-                
-                ImGui::PopID();
                 --i; // Re-adjust index
+                ImGui::PopID();
                 continue;
             }
 
@@ -540,15 +701,12 @@ void UI::DrawLinesTab(App& app) {
 
 void UI::DrawPlanesTab(App& app) {
     auto& sceneData = app.GetSceneData();
-    auto& renderer = app.GetRenderer();
-    auto& camera = app.GetCamera();
-
+    
     static char planeName[128] = "";
     ImGui::InputText("Name", planeName, sizeof(planeName));
-
     ImGui::DragFloat("Plane Opacity", &sceneData.settings.planeOpacity, 0.01f, 0.1f, 1.0f);
 
-    // tabs to creat point with coords or select existing points
+    // tabs to create point with coords or select existing points
     if (ImGui::BeginTabBar("PlaneTabs")) {
         if (ImGui::BeginTabItem("Select Points")) {
             static int selectedPoint1 = -1;
@@ -595,8 +753,8 @@ void UI::DrawPlanesTab(App& app) {
                     if (name.empty()) {
                         ImGui::SameLine();
                         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
-                    } else if (std::any_of(sceneData.points.begin(), sceneData.points.end(),
-                        [&](const SceneData::Point& p) { return p.name == name; })) {
+                    } else if (std::any_of(sceneData.planes.begin(), sceneData.planes.end(),
+                        [&](const SceneData::Plane& p) { return p.name == name; })) {
                         ImGui::SameLine();
                         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
                     } else {
@@ -623,8 +781,8 @@ void UI::DrawPlanesTab(App& app) {
                 if (name.empty()) {
                     ImGui::SameLine();
                     ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
-                } else if (std::any_of(sceneData.points.begin(), sceneData.points.end(),
-                    [&](const SceneData::Point& p) { return p.name == name; })) {
+                } else if (std::any_of(sceneData.planes.begin(), sceneData.planes.end(),
+                    [&](const SceneData::Plane& p) { return p.name == name; })) {
                     ImGui::SameLine();
                     ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
                 } else {
@@ -634,8 +792,8 @@ void UI::DrawPlanesTab(App& app) {
                     sceneData.points.push_back({ name + "3", { 0.0f, 0.0f, planeCoords[2] }, true });
 
                     sceneData.planes.push_back({ name, static_cast<int>(sceneData.points.size() - 3), 
-                                                    static_cast<int>(sceneData.points.size() - 2), 
-                                                    static_cast<int>(sceneData.points.size() - 1) });
+                                                static_cast<int>(sceneData.points.size() - 2), 
+                                                static_cast<int>(sceneData.points.size() - 1) });
                     planeName[0] = '\0';
                 }
             }
@@ -646,57 +804,53 @@ void UI::DrawPlanesTab(App& app) {
         }
         ImGui::EndTabBar();
     }
-    
-    //ImGui::Checkbox("Show Cuts*", &sceneData.settings.showCutPlanes);
-    //renderer.SetCutPlaneVisible(sceneData.settings.showCutPlanes);
 
     ImGui::Separator();
 
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
-    if (ImGui::BeginTable("PlaneTable", 5, ImGuiTableFlags_NoHostExtendX                
-                                        | ImGuiTableFlags_RowBg  
-                                        | ImGuiTableFlags_Resizable )) {
-        ImGui::TableSetupColumn("Name");
-        //ImGui::TableSetupColumn("Points");
-        ImGui::TableSetupColumn("Hide Points");
-        ImGui::TableSetupColumn("Expand");
-        ImGui::TableSetupColumn("Color");
-        ImGui::TableSetupColumn("Delete");
+    if (ImGui::BeginTable("PlaneTable", 5, 
+        ImGuiTableFlags_NoHostExtendX | 
+        ImGuiTableFlags_RowBg | 
+        ImGuiTableFlags_Resizable | 
+        ImGuiTableFlags_SizingStretchSame)) {
+        
+        // Set column widths
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.3f);
+        ImGui::TableSetupColumn("Hide Points", ImGuiTableColumnFlags_WidthFixed, 65.0f);
+        ImGui::TableSetupColumn("Expand", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+        ImGui::TableSetupColumn("Color", ImGuiTableColumnFlags_WidthFixed, 40.0f);
+        ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableHeadersRow();
 
         for (size_t i = 0; i < sceneData.planes.size(); ++i) {
             auto& plane = sceneData.planes[i];
             ImVec4 color(plane.color[0], plane.color[1], plane.color[2], 1.0f);
-            ImGui::PushID(static_cast<int>(i)); // Unique ID scope for widgets
 
+            ImGui::PushID(static_cast<int>(i));
             ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%s (%c)", plane.name.c_str(), plane.name.empty() ? '?' : plane.name[0]);
 
-            /*ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%s, %s, %s",
-                sceneData.points[plane.point1index].name.c_str(),
-                sceneData.points[plane.point2index].name.c_str(),
-                sceneData.points[plane.point3index].name.c_str());*/
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("%s", plane.name.c_str());
 
             ImGui::TableSetColumnIndex(1);
-            bool pointsHidden = sceneData.points[plane.point1index].hidden && 
-                                sceneData.points[plane.point2index].hidden && 
-                                sceneData.points[plane.point3index].hidden;
-                                
-            if (ImGui::Checkbox("##Hide", &pointsHidden)) {
-                sceneData.points[plane.point1index].hidden = pointsHidden;
-                sceneData.points[plane.point2index].hidden = pointsHidden;
-                sceneData.points[plane.point3index].hidden = pointsHidden;
+            bool pointsHidden = false;
+            if (plane.point1index >= 0 && plane.point1index < static_cast<int>(sceneData.points.size()) &&
+                plane.point2index >= 0 && plane.point2index < static_cast<int>(sceneData.points.size()) &&
+                plane.point3index >= 0 && plane.point3index < static_cast<int>(sceneData.points.size())) {
+                // Use a local variable to avoid referencing possibly invalid memory after erase
+                pointsHidden = sceneData.points[plane.point1index].hidden;
+                if (ImGui::Checkbox("##Hide", &pointsHidden)) {
+                    sceneData.points[plane.point1index].hidden = pointsHidden;
+                    sceneData.points[plane.point2index].hidden = pointsHidden;
+                    sceneData.points[plane.point3index].hidden = pointsHidden;
+                }
             }
 
             ImGui::TableSetColumnIndex(2);
-            if (ImGui::Checkbox("##Expand", &plane.expand)) {
-                sceneData.planes[i].expand = plane.expand; 
-            }
+            ImGui::Checkbox("##Expand", &plane.expand);
 
             ImGui::TableSetColumnIndex(3);
-            if (ImGui::ColorEdit4("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
+            if (ImGui::ColorEdit3("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
                 plane.color[0] = color.x;
                 plane.color[1] = color.y;
                 plane.color[2] = color.z;
@@ -704,15 +858,25 @@ void UI::DrawPlanesTab(App& app) {
 
             ImGui::TableSetColumnIndex(4);
             if (ImGui::Button("X")) {
+                int p1 = plane.point1index;
+                int p2 = plane.point2index;
+                int p3 = plane.point3index;
+                bool p1User = (p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) ? 
+                    sceneData.points[p1].userCreated : false;
+                bool p2User = (p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) ? 
+                    sceneData.points[p2].userCreated : false;
+                bool p3User = (p3 >= 0 && p3 < static_cast<int>(sceneData.points.size())) ? 
+                    sceneData.points[p3].userCreated : false;
+
                 sceneData.planes.erase(sceneData.planes.begin() + i);
-                if (!sceneData.points[plane.point1index].userCreated) {
-                    app.DeletePoint(sceneData.points[plane.point1index]);
+                if (!p1User && p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) {
+                    app.DeletePoint(sceneData.points[p1]);
                 }
-                if (!sceneData.points[plane.point2index].userCreated) {
-                    app.DeletePoint(sceneData.points[plane.point2index]);
+                if (!p2User && p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) {
+                    app.DeletePoint(sceneData.points[p2]);
                 }
-                if (!sceneData.points[plane.point3index].userCreated) {
-                    app.DeletePoint(sceneData.points[plane.point3index]);
+                if (!p3User && p3 >= 0 && p3 < static_cast<int>(sceneData.points.size())) {
+                    app.DeletePoint(sceneData.points[p3]);
                 }
                 ImGui::PopID();
                 --i; // Re-adjust index
@@ -724,7 +888,7 @@ void UI::DrawPlanesTab(App& app) {
 
         ImGui::EndTable();
     }
-    ImGui::PopStyleVar(); 
+    ImGui::PopStyleVar();
 }
 
 void UI::DrawPresetWindow(App& app) {
@@ -737,10 +901,9 @@ void UI::DrawPresetWindow(App& app) {
     std::string presetsPath = "./assets/presets.json";
     nlohmann::json jsonContent = jsonHandler.LoadPresets(presetsPath);
 
-    // big mistake
-    //ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 250, 450), ImGuiWindowFLags_);
-    ImGui::Begin("Presets", nullptr);
-    ImGui::Text("Select a preset to load");
+    ImGui::SetNextWindowPos(ImVec2(60, 650), ImGuiCond_FirstUseEver);
+    ImGui::Begin(SetText("presets_title", currentLanguage).c_str(), nullptr);
+    ImGui::Text(SetText("presets_message", currentLanguage).c_str());
 
     if (jsonContent.is_null()) {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Failed to load presets!");
@@ -748,18 +911,18 @@ void UI::DrawPresetWindow(App& app) {
         return;
     }
 
-    if (ImGui::Button("Points")) {
+    if (ImGui::Button(SetText("multi_points", currentLanguage).c_str())) {
         ImGui::OpenPopup("Points Presets");
     }
     
     ImGui::SetNextWindowPos(ImVec2(width / 2 - 150, height / 2 - 75), ImGuiCond_Always);
     if (ImGui::BeginPopupModal("Points Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Available Point Presets:");
+        ImGui::Text(SetText("presets_points_available", currentLanguage).c_str());
         ImGui::Separator();
         
         auto pointPresets = jsonHandler.GetPointPresets(jsonContent);
         if (pointPresets.empty()) {
-            ImGui::Text("No point presets found");
+            ImGui::Text(SetText("presets_no_points_found", currentLanguage).c_str());
         } else {
             for (const auto& preset : pointPresets) {
                 std::string label = preset["name"].get<std::string>() + " - " + preset["description"].get<std::string>();
@@ -778,7 +941,7 @@ void UI::DrawPresetWindow(App& app) {
         }
         
         ImGui::Separator();
-        if (ImGui::Button("Close", ImVec2(120, 0))) {
+        if (ImGui::Button(SetText("multi_close", currentLanguage).c_str(), ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -786,18 +949,18 @@ void UI::DrawPresetWindow(App& app) {
 
     ImGui::SameLine();
 
-    if (ImGui::Button("Lines")) {
+    if (ImGui::Button(SetText("multi_lines", currentLanguage).c_str())) {
         ImGui::OpenPopup("Lines Presets");
     }
     
     ImGui::SetNextWindowPos(ImVec2(width / 2 - 150, height / 2 - 75), ImGuiCond_Always);
     if (ImGui::BeginPopupModal("Lines Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Available Line Presets:");
+        ImGui::Text(SetText("presets_lines_available", currentLanguage).c_str());
         ImGui::Separator();
         
         auto linePresets = jsonHandler.GetLinePresets(jsonContent);
         if (linePresets.empty()) {
-            ImGui::Text("No line presets found");
+            ImGui::Text(SetText("presets_no_lines_found", currentLanguage).c_str());
         } else {
             for (const auto& preset : linePresets) {
                 std::string label = preset["name"].get<std::string>() + " - " + preset["description"].get<std::string>();
@@ -832,7 +995,7 @@ void UI::DrawPresetWindow(App& app) {
         }
         
         ImGui::Separator();
-        if (ImGui::Button("Close", ImVec2(120, 0))) {
+        if (ImGui::Button(SetText("multi_close", currentLanguage).c_str(), ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -841,17 +1004,17 @@ void UI::DrawPresetWindow(App& app) {
     ImGui::SameLine();
 
     ImGui::SetNextWindowPos(ImVec2(width / 2 - 150, height / 2 - 75), ImGuiCond_Always);
-    if (ImGui::Button("Planes")) {
+    if (ImGui::Button(SetText("multi_planes", currentLanguage).c_str())) {
         ImGui::OpenPopup("Plane Presets");
     }
     
     if (ImGui::BeginPopupModal("Plane Presets", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::Text("Available Plane Presets:");
+        ImGui::Text(SetText("presets_planes_available", currentLanguage).c_str());
         ImGui::Separator();
         
         auto planePresets = jsonHandler.GetPlanePresets(jsonContent);
         if (planePresets.empty()) {
-            ImGui::Text("No plane presets found");
+            ImGui::Text(SetText("presets_no_planes_found", currentLanguage).c_str());
         } else {
             for (const auto& preset : planePresets) {
                 std::string label = preset["name"].get<std::string>() + " - " + preset["description"].get<std::string>();
@@ -906,7 +1069,7 @@ void UI::DrawPresetWindow(App& app) {
         }
         
         ImGui::Separator();
-        if (ImGui::Button("Close", ImVec2(120, 0))) {
+        if (ImGui::Button(SetText("multi_close", currentLanguage).c_str(), ImVec2(120, 0))) {
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();

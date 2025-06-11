@@ -20,4 +20,6 @@ private:
     void DrawLineWithLabels(ImDrawList* drawList, const ImVec2& p1, const ImVec2& p2,
                            float minX, float maxX, float minY, float maxY,
                            ImU32 color, char lineName, bool is2, bool dashed);
+
+    float zoom = 1.0f; //works as the scale factor for the viewport
 };

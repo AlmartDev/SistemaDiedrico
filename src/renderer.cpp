@@ -162,6 +162,21 @@ void Renderer::Render() {
             DrawLabel("IV", glm::vec3(0.0f, -0.7f, 0.7f), glm::vec3(1.0f, 1.0f, 1.0f), true);
         }
         
+        if (m_showScale) {
+            float scale = m_scale / 50.0f;
+            DrawLabel("0", glm::vec3(-1.05f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), true);
+            for (int i = -5; i <= 5; ++i) {
+                if (i == 0) continue; // Skip zero
+                glm::vec3 pos(-1.05f, i * 0.2f, 0.0f);
+                DrawLabel(std::to_string(static_cast<int>(i * scale * 10)).c_str(), pos, glm::vec3(1.0f, 1.0f, 1.0f), false);
+            }
+            for (int i = -5; i <= 5; ++i) {
+                if (i == 0) continue; // Skip zero
+                glm::vec3 pos(-1.05f, 0.0f, i * 0.2f);
+                DrawLabel(std::to_string(static_cast<int>(i * scale * 10)).c_str(), pos, glm::vec3(1.0f, 1.0f, 1.0f), false);
+            }
+        }
+
         glBindVertexArray(0);
     }
 
@@ -437,6 +452,9 @@ void Renderer::DrawAxes() {
             break;
         case 2: // Dihedral system
             m_showDihedral = true;
+            break;
+        default:
+            m_showDihedral = false;
             break;
     }
 

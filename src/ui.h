@@ -40,4 +40,13 @@ private:
     // File dialogs
     void OpenFileDialog(App& app);
     void SaveFileDialog(App& app);
+
+    // TRANSLATION ------------------
+    void loadTranslations(const std::string& path);
+    std::string SetText(const std::string& key, const std::string& language);
+
+    // translation data
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> translations;
+
+    std::string currentLanguage = "EN";
 };

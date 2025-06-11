@@ -66,6 +66,9 @@ struct SceneData {
         std::string loadedFileName = "";
 
         bool showWelcomeWindow = true;
+
+        // TRANSLATION
+        std::string defaultLanguage = "EN";
     };
 
     std::vector<Point> points;

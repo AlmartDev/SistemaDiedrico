@@ -5,6 +5,9 @@
 void DihedralViewport::Draw(App& app) {
     auto& sceneData = app.GetSceneData();
 
+    float scale = sceneData.settings.worldScale;
+    zoom = 1/scale*50.0f;
+
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(
@@ -59,29 +62,29 @@ void DihedralViewport::DrawPoints(App& app, ImDrawList* drawList, const ImVec2& 
         float y1 = point.coords[2] / 3.0f;
         float y2 = -point.coords[1] / 3.0f;
 
-        ImVec2 pos1(viewportCenter.x + x * 10, viewportCenter.y - y1 * 10);
-        ImVec2 pos2(viewportCenter.x + x * 10, viewportCenter.y - y2 * 10);
+        ImVec2 pos1(viewportCenter.x + x * 10 * zoom, viewportCenter.y - y1 * 10 * zoom);
+        ImVec2 pos2(viewportCenter.x + x * 10 * zoom, viewportCenter.y - y2 * 10 * zoom);
 
-        drawList->AddCircleFilled(pos1, sceneData.settings.pointSize / 2,
+        drawList->AddCircleFilled(pos1, sceneData.settings.pointSize * zoom / 2,
                                 IM_COL32(point.color[0] * 255, point.color[1] * 255, point.color[2] * 255, 255));
-        drawList->AddCircleFilled(pos2, sceneData.settings.pointSize / 2,
+        drawList->AddCircleFilled(pos2, sceneData.settings.pointSize * zoom / 2,
                                 IM_COL32(point.color[0] * 255, point.color[1] * 255, point.color[2] * 255, 255));
         
         // Draw labels
-        if (pos2.x - 20 == pos1.x - 20 && pos2.y - 20 == pos1.y - 20) {
-            ImGui::SetCursorScreenPos(ImVec2(pos2.x - 20, pos2.y - 20));
+        if (pos2.x - 20 * zoom == pos1.x - 20 * zoom && pos2.y - 20 * zoom == pos1.y - 20 * zoom) {
+            ImGui::SetCursorScreenPos(ImVec2(pos2.x - 20 * zoom, pos2.y - 20 * zoom));
             ImGui::TextColored(ImVec4(point.color[0], point.color[1], point.color[2], 1.0f), "%c1 = %c2", point.name[0], point.name[0]);
         }
         else {
-            ImGui::SetCursorScreenPos(ImVec2(pos2.x - 20, pos2.y - 20));
+            ImGui::SetCursorScreenPos(ImVec2(pos2.x - 20 * zoom, pos2.y - 20 * zoom));
             ImGui::TextColored(ImVec4(point.color[0], point.color[1], point.color[2], 1.0f), "%c1", point.name[0]);
-            ImGui::SetCursorScreenPos(ImVec2(pos1.x - 20, pos1.y - 20));
+            ImGui::SetCursorScreenPos(ImVec2(pos1.x - 20 * zoom, pos1.y - 20 * zoom));
             ImGui::TextColored(ImVec4(point.color[0], point.color[1], point.color[2], 1.0f), "%c2", point.name[0]);
         }
 
-        ImVec2 ltPos(viewportCenter.x + x * 10, viewportCenter.y);
-        drawList->AddLine(pos1, ltPos, lineColor, .75f);
-        drawList->AddLine(pos2, ltPos, lineColor, .75f);
+        ImVec2 ltPos(viewportCenter.x + x * 10 * zoom, viewportCenter.y);
+        drawList->AddLine(pos1, ltPos, lineColor, 0.75f * zoom);
+        drawList->AddLine(pos2, ltPos, lineColor, 0.75f * zoom);
     }
 }
 
@@ -167,7 +170,7 @@ void DihedralViewport::DrawLines(App& app, ImDrawList* drawList, const ImVec2& c
         float y2_r2 = p2.coords[2] / 3.0f;
         float y2_r1 = -p2.coords[1] / 3.0f;
 
-        float scale = 10.0f;
+        float scale = 10.0f * zoom;
 
         // R2 line (vertical plane)
         ImVec2 p1_r2(viewportCenter.x + x1 * scale, viewportCenter.y - y1_r2 * scale);
@@ -203,8 +206,8 @@ void DihedralViewport::DrawLines(App& app, ImDrawList* drawList, const ImVec2& c
             );
 
             if (sceneData.settings.showCutLines) {
-                drawList->AddCircleFilled(groundPoint, 3.0f, IM_COL32(0, 0, 255, 255));
-                drawList->AddLine(r2_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f);
+                drawList->AddCircleFilled(groundPoint, 3.0f * zoom, IM_COL32(0, 0, 255, 255));
+                drawList->AddLine(r2_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f * zoom);
             }
         }
 
@@ -226,8 +229,8 @@ void DihedralViewport::DrawLines(App& app, ImDrawList* drawList, const ImVec2& c
             );
             
             if (sceneData.settings.showCutLines) {
-                drawList->AddCircleFilled(groundPoint, 3.0f, IM_COL32(255, 0, 0, 255));
-                drawList->AddLine(r1_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f);
+                drawList->AddCircleFilled(groundPoint, 3.0f * zoom, IM_COL32(255, 0, 0, 255));
+                drawList->AddLine(r1_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f * zoom);
             }
         }
 
@@ -252,13 +255,14 @@ void DihedralViewport::DrawLines(App& app, ImDrawList* drawList, const ImVec2& c
             );
 
             if (sceneData.settings.showCutLines) {
-                drawList->AddCircleFilled(groundPointR2, 3.0f, IM_COL32(255, 0, 0, 255));
-                drawList->AddCircleFilled(groundPointR1, 3.0f, IM_COL32(255, 0, 0, 255));
-                drawList->AddLine(groundPointR2, groundPointR1, IM_COL32(100, 100, 100, 128), 1.0f);
+                drawList->AddCircleFilled(groundPointR2, 3.0f * zoom, IM_COL32(255, 0, 0, 255));
+                drawList->AddCircleFilled(groundPointR1, 3.0f * zoom, IM_COL32(255, 0, 0, 255));
+                drawList->AddLine(groundPointR2, groundPointR1, IM_COL32(100, 100, 100, 128), 1.0f * zoom);
             }
         }
     }
 }
+
 
 void DihedralViewport::DrawPlanes(App& app, ImDrawList* drawList, const ImVec2& cursorPos, const ImVec2& viewportSize, ImU32 lineColor) {
     auto& sceneData = app.GetSceneData();
@@ -291,15 +295,15 @@ void DihedralViewport::DrawPlanes(App& app, ImDrawList* drawList, const ImVec2& 
         float x2_horiz = (-D) / A;
         glm::vec3 horiz_point2(x2_horiz / 2, 0.0f, 0.0f);
 
-        ImVec2 p1_vert(cursorPos.x + viewportSize.x / 2 + vert_point1.x * 10,
-                   (cursorPos.y + viewportSize.y / 2) - vert_point1.z * 10);
-        ImVec2 p2_vert(cursorPos.x + viewportSize.x / 2 + vert_point2.x * 10,
-                   (cursorPos.y + viewportSize.y / 2) - vert_point2.z * 10);
+        ImVec2 p1_vert(cursorPos.x + viewportSize.x / 2 + vert_point1.x * 10 * zoom,
+                   (cursorPos.y + viewportSize.y / 2) - vert_point1.z * 10 * zoom);
+        ImVec2 p2_vert(cursorPos.x + viewportSize.x / 2 + vert_point2.x * 10 * zoom,
+                   (cursorPos.y + viewportSize.y / 2) - vert_point2.z * 10 * zoom);
 
-        ImVec2 p1_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point1.x * 10,
-                (cursorPos.y + viewportSize.y / 2) - horiz_point1.y * 10);
-        ImVec2 p2_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point2.x * 10,
-                (cursorPos.y + viewportSize.y / 2) + horiz_point2.y * 10);
+        ImVec2 p1_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point1.x * 10 * zoom,
+                (cursorPos.y + viewportSize.y / 2) - horiz_point1.y * 10 * zoom);
+        ImVec2 p2_horiz(cursorPos.x + viewportSize.x / 2 + horiz_point2.x * 10 * zoom,
+                (cursorPos.y + viewportSize.y / 2) + horiz_point2.y * 10 * zoom);
 
         ImVec2 vert_dir = ImVec2(p2_vert.x - p1_vert.x, p2_vert.y - p1_vert.y);
         if (fabs(vert_dir.x) < 1e-5) { // vertical line
@@ -339,14 +343,14 @@ void DihedralViewport::DrawPlanes(App& app, ImDrawList* drawList, const ImVec2& 
         }
 
         // Draw the plane lines
-        drawList->AddLine(p1_horiz, p2_horiz, lineColor, 3.0f);
-        drawList->AddLine(p1_vert, p2_vert, lineColor, 3.0f);
+        drawList->AddLine(p1_horiz, p2_horiz, lineColor, 3.0f * zoom);
+        drawList->AddLine(p1_vert, p2_vert, lineColor, 3.0f * zoom);
         
         // add labels
-        ImGui::SetCursorScreenPos(ImVec2((p1_horiz.x + p2_horiz.x) / 2 - 15, (p1_horiz.y + p2_horiz.y) / 2 - 20));
+        ImGui::SetCursorScreenPos(ImVec2(((p1_horiz.x + p2_horiz.x) / 2 - 15) * zoom, ((p1_horiz.y + p2_horiz.y) / 2 - 20) * zoom));
         ImVec4 lineColorVec = ImGui::ColorConvertU32ToFloat4(lineColor);
         ImGui::TextColored(lineColorVec, "%c1", plane.name[0]);
-        ImGui::SetCursorScreenPos(ImVec2((p1_vert.x + p2_vert.x) / 2 + 15, (p1_vert.y + p2_vert.y) / 2 - 20));
+        ImGui::SetCursorScreenPos(ImVec2(((p1_vert.x + p2_vert.x) / 2 - 15) * zoom, ((p1_vert.y + p2_vert.y) / 2 - 20) * zoom));
         ImGui::TextColored(lineColorVec, "%c2", plane.name[0]);
     }
 }

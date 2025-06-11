@@ -48,6 +48,7 @@ public:
     void SetQuadrantLabelsVisible(bool visible) { m_showQuadrantLabels = visible; }
 
     void DrawLabel(const char* text, const glm::vec3& position, const glm::vec3& color, bool showBackground);
+    void SetShowScale(bool show, float scale) { m_showScale = show; m_scale = scale; }
 private:
     void DrawAxes();
     void SetupShaderProgram(GLuint& program, const char* vertexSrc, const char* fragmentSrc);
@@ -65,6 +66,9 @@ private:
     bool m_showPointLabels = true;
     bool m_showLineLabels = true;
     bool m_showPlaneLabels = true;
+
+    bool m_showScale = false;
+    float m_scale = 1.0f;
 
     glm::mat4 m_viewMatrix;
     glm::mat4 m_projectionMatrix;
