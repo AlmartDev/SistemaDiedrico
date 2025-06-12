@@ -32,6 +32,7 @@ public:
     SceneData& GetSceneData() { return m_sceneData; }
     Camera& GetCamera() { return m_camera; }
     Renderer& GetRenderer() { return m_renderer; }
+    UI& GetUI() { return *m_ui; }
 
     void SetSceneData(const SceneData& sceneData) { // in case we open a new project we get rid of the old one
         m_sceneData = sceneData;

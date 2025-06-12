@@ -1,4 +1,4 @@
-id,key,EN,ES
+id,key,EN,ES,DEBUG
 0,menu_file,File,Archivo
 1,menu_help,Help,Ayuda
 2,menu_open,Open,Abrir

@@ -8,7 +8,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.13.9"
+#define PROGRAM_VERSION "0.14"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -45,6 +45,12 @@ IMGUI_CHECKVERSION();
     
     loadTranslations(languagePath);
 
+    // check if default languae is inside the avaliable languages
+    if (std::find(availableLanguages.begin(), availableLanguages.end(), sceneData.settings.defaultLanguage) != availableLanguages.end()) {
+        currentLanguage = sceneData.settings.defaultLanguage;
+    } else {
+        std::cerr << (sceneData.settings.defaultLanguage == availableLanguages[2]) << std::endl;
+    }
     // Initialize ImGui backends
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     
@@ -116,27 +122,31 @@ void UI::loadTranslations(const std::string& path) {
     availableLanguages.clear();
     for (const auto& lang : languages) {
         if (!lang.empty()) {
-            availableLanguages.push_back(lang);
+            std::cout << "Loaded language: " << lang << std::endl;
+            std::string trimmedLang = lang;
+            trimmedLang.erase(trimmedLang.find_last_not_of(" \t\n\r\f\v") + 1);
+            trimmedLang.erase(0, trimmedLang.find_first_not_of(" \t\n\r\f\v"));
+            availableLanguages.push_back(trimmedLang);
         }
     }
+
     file.close();
 }
 
 std::string UI::SetText(const std::string& key, const std::string& language) {
-    // Try to find the translation
-    auto keyIt = translations.find(key);
-    if (keyIt != translations.end()) {
-        auto langIt = keyIt->second.find(language);
-        if (langIt != keyIt->second.end()) {
-            return langIt->second;
-        }
-        // Fallback to English if current language not found
-        langIt = keyIt->second.find("EN");
-        if (langIt != keyIt->second.end()) {
+
+    auto it = translations.find(key);
+    if (it != translations.end()) {
+        // Trim whitespace from language code before lookup
+        std::string trimmedLang = language;
+        trimmedLang.erase(trimmedLang.find_last_not_of(" \t\n\r\f\v") + 1);
+        trimmedLang.erase(0, trimmedLang.find_first_not_of(" \t\n\r\f\v"));
+        auto langIt = it->second.find(trimmedLang);
+        if (langIt != it->second.end()) {
             return langIt->second;
         }
     }
-    
+
     // Return the key itself if no translation found
     return key;
 }
@@ -149,8 +159,6 @@ void UI::ShutdownImGui() {
 }
 
 void UI::DrawUI(App& app) {
-    currentLanguage = app.GetSceneData().settings.defaultLanguage;
-
     DrawMenuBar(app);
     DrawSettingsWindow(app);
     DrawPresetWindow(app);
@@ -229,15 +237,23 @@ void UI::DrawMenuBar(App& app) {
             if (availableLanguages.size() > 1) {
                 if (ImGui::BeginMenu(SetText("menu_lang", currentLanguage).c_str())) {
                     ImGui::TextColored(ImVec4(0.2f, 0.5f, 1.0f, 1.0f), "./languages.csv");
-                    for (const auto& lang : availableLanguages) {
-                        if (ImGui::MenuItem(lang.c_str(), nullptr, currentLanguage == lang)) {
-                            sceneData.settings.defaultLanguage = lang;
-                            currentLanguage = lang; // Update current language
+                    for (const std::string& lang : availableLanguages) {
+                        bool isCurrent = (currentLanguage == lang); // Case-sensitive comparison is fine if data is consistent
+                        
+                        if (ImGui::MenuItem(lang.c_str(), nullptr, isCurrent)) {
+                            if (!isCurrent) {  // Only change if it's actually different
+                                std::cout << "Language changed from: " << currentLanguage 
+                                        << " to: " << lang << std::endl;
+                                currentLanguage = lang;
+                                // You might want to save this preference to settings here
+                                // app.GetSceneData().settings.defaultLanguage = currentLanguage;
+                            } else {
+                                std::cout << "Selected same language: " << lang << std::endl;
+                            }
                         }
                     }
                     ImGui::EndMenu();
                 }
-                
                 ImGui::Separator();
             }
             if (ImGui::MenuItem(SetText("menu_clear_scene", currentLanguage).c_str())) {

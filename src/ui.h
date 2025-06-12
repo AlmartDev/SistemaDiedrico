@@ -25,6 +25,9 @@ public:
     // Add empty virtual destructor
     virtual ~UI() = default;
     
+    void SetLanguage(const std::string& language) {
+        currentLanguage = language;
+    }
 private:
     void DrawMenuBar(App& app);
     void DrawSettingsWindow(App& app);
@@ -49,5 +52,5 @@ private:
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> translations;
     std::vector<std::string> availableLanguages;
 
-    std::string currentLanguage = "EN";
+    std::string currentLanguage;
 };

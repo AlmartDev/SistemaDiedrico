@@ -41,8 +41,23 @@ void handleFileLoad(const std::string& content) {
     }
 }
 
+EM_JS(void, setInitialLanguageFromURL, (), {
+    const urlParams = new URLSearchParams(window.location.search);
+    const langParam = urlParams.get('lang');
+    if (langParam) {
+        Module.setLanguage(langParam);
+    }
+});
+
+void setLanguage(const std::string& lang) {
+    if (App::s_instance) {
+        App::s_instance->GetUI().SetLanguage(lang);
+    }
+}
+
 EMSCRIPTEN_BINDINGS(my_module) {
     emscripten::function("handleFileLoad", &handleFileLoad);
+    emscripten::function("setLanguage", &setLanguage);
 }
 #endif
 
@@ -116,6 +131,10 @@ bool App::Initialize(int argc, char** argv) {
             break;
         }
     }
+
+    #ifdef __EMSCRIPTEN__
+    setInitialLanguageFromURL();
+    #endif
 
     return true;
 }
