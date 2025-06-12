@@ -8,7 +8,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.14"
+#define PROGRAM_VERSION "0.14.1"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -242,13 +242,8 @@ void UI::DrawMenuBar(App& app) {
                         
                         if (ImGui::MenuItem(lang.c_str(), nullptr, isCurrent)) {
                             if (!isCurrent) {  // Only change if it's actually different
-                                std::cout << "Language changed from: " << currentLanguage 
                                         << " to: " << lang << std::endl;
                                 currentLanguage = lang;
-                                // You might want to save this preference to settings here
-                                // app.GetSceneData().settings.defaultLanguage = currentLanguage;
-                            } else {
-                                std::cout << "Selected same language: " << lang << std::endl;
                             }
                         }
                     }
@@ -633,11 +628,11 @@ void UI::DrawLinesTab(App& app) {
     }
 
     ImGui::SameLine();
-    ImGui::Checkbox("Show Cuts", &sceneData.settings.showCutLines);
+    ImGui::Checkbox(SetText("tabs_cuts", currentLanguage).c_str(), &sceneData.settings.showCutLines);
     renderer.SetCutLineVisible(sceneData.settings.showCutLines);
 
     ImGui::SameLine();
-    ImGui::Checkbox("Labels", &sceneData.settings.showLabels[1]);
+    ImGui::Checkbox(SetText("tabs_labels", currentLanguage).c_str(), &sceneData.settings.showLabels[1]);
 
     ImGui::Separator();
 
@@ -792,7 +787,7 @@ void UI::DrawPlanesTab(App& app) {
 
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(SetText("tabs_add_points", currentLanguage).c_str())) {
+        if (ImGui::BeginTabItem(SetText("tabs_add_coords", currentLanguage).c_str())) {
             static float planeCoords[3] = {0.0f, 0.0f, 0.0f};
             ImGui::InputFloat3(SetText("tabs_coords", currentLanguage).c_str(), planeCoords);
 
