@@ -242,7 +242,6 @@ void UI::DrawMenuBar(App& app) {
                         
                         if (ImGui::MenuItem(lang.c_str(), nullptr, isCurrent)) {
                             if (!isCurrent) {  // Only change if it's actually different
-                                        << " to: " << lang << std::endl;
                                 currentLanguage = lang;
                             }
                         }
