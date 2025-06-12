@@ -8,7 +8,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.14.1"
+#define PROGRAM_VERSION "0.14.2"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -518,8 +518,8 @@ void UI::DrawPointsTab(App& app) {
             }
 
             ImGui::TableSetColumnIndex(3);
-            if (ImGui::Button("X")) {
-            app.DeletePoint(point);
+                if (ImGui::Button("X")) {
+                app.DeletePoint(point);
             }
             ImGui::PopID();
         }
@@ -643,10 +643,10 @@ void UI::DrawLinesTab(App& app) {
         ImGuiTableFlags_Resizable | 
         ImGuiTableFlags_SizingStretchSame)) {
         
-        // Set column widths - first 4 columns fixed, last column takes remaining space
-        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.3f);
+        // Set column widths - first column stretches, others fixed
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("Hide Points", ImGuiTableColumnFlags_WidthFixed, 65.0f);
-        ImGui::TableSetupColumn("Visibility", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+        ImGui::TableSetupColumn("Visibility", ImGuiTableColumnFlags_WidthFixed, 105.0f);
         ImGui::TableSetupColumn("Color", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableHeadersRow();
@@ -688,20 +688,31 @@ void UI::DrawLinesTab(App& app) {
 
             ImGui::TableSetColumnIndex(4);
             if (ImGui::Button("X", ImVec2(-FLT_MIN, 0))) {
-                // Store indices before erasing
                 int p1 = line.point1index;
                 int p2 = line.point2index;
-                bool p1User = (p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) ? 
+
+                bool p1User = (p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) ?
                     sceneData.points[p1].userCreated : false;
-                bool p2User = (p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) ? 
+                bool p2User = (p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) ?
                     sceneData.points[p2].userCreated : false;
 
                 sceneData.lines.erase(sceneData.lines.begin() + i);
-                if (!p1User && p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) {
-                    app.DeletePoint(sceneData.points[p1]);
+
+                if (p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) {
+                    if (!p1User) {
+                        sceneData.points[p1].hidden = true;
+                        sceneData.points[p1].name = "deleted";
+                    } else {
+                        sceneData.points[p1].hidden = false;
+                    }
                 }
-                if (!p2User && p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) {
-                    app.DeletePoint(sceneData.points[p2]);
+                if (p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) {
+                    if (!p2User) {
+                        sceneData.points[p2].hidden = true;
+                        sceneData.points[p2].name = "deleted";
+                    } else {
+                        sceneData.points[p2].hidden = false;
+                    }
                 }
                 --i; // Re-adjust index
                 ImGui::PopID();
@@ -878,22 +889,37 @@ void UI::DrawPlanesTab(App& app) {
                 int p1 = plane.point1index;
                 int p2 = plane.point2index;
                 int p3 = plane.point3index;
+                
                 bool p1User = (p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) ? 
                     sceneData.points[p1].userCreated : false;
-                bool p2User = (p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) ? 
+                bool p2User = (p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) ?
                     sceneData.points[p2].userCreated : false;
-                bool p3User = (p3 >= 0 && p3 < static_cast<int>(sceneData.points.size())) ? 
+                bool p3User = (p3 >= 0 && p3 < static_cast<int>(sceneData.points.size())) ?
                     sceneData.points[p3].userCreated : false;
-
                 sceneData.planes.erase(sceneData.planes.begin() + i);
-                if (!p1User && p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) {
-                    app.DeletePoint(sceneData.points[p1]);
+                if (p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) {
+                    if (!p1User) {
+                        sceneData.points[p1].hidden = true;
+                        sceneData.points[p1].name = "deleted";
+                    } else {
+                        sceneData.points[p1].hidden = false;
+                    }
                 }
-                if (!p2User && p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) {
-                    app.DeletePoint(sceneData.points[p2]);
+                if (p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) {
+                    if (!p2User) {
+                        sceneData.points[p2].hidden = true;
+                        sceneData.points[p2].name = "deleted";
+                    } else {
+                        sceneData.points[p2].hidden = false;
+                    }
                 }
-                if (!p3User && p3 >= 0 && p3 < static_cast<int>(sceneData.points.size())) {
-                    app.DeletePoint(sceneData.points[p3]);
+                if (p3 >= 0 && p3 < static_cast<int>(sceneData.points.size())) {
+                    if (!p3User) {
+                        sceneData.points[p3].hidden = true;
+                        sceneData.points[p3].name = "deleted";
+                    } else {
+                        sceneData.points[p3].hidden = false;
+                    }
                 }
                 ImGui::PopID();
                 --i; // Re-adjust index

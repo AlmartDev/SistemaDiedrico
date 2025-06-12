@@ -187,82 +187,65 @@ void DihedralViewport::DrawLines(App& app, ImDrawList* drawList, const ImVec2& c
                         cursorPos.x, cursorPos.x + viewportSize.x,
                         cursorPos.y, cursorPos.y + viewportSize.y,
                         lineColor, line.name[0], false, false);
+        
+        if (line.showVisibility) {
+            if (y1_r2 * y2_r2 <= 0) {
+                float t = -y1_r2 / (y2_r2 - y1_r2);
+                float x_ground = x1 + t * (x2 - x1);
+                float y_r1_ground = y1_r1 + t * (y2_r1 - y1_r1);
+                
+                ImVec2 groundPoint(
+                    viewportCenter.x + x_ground * scale,
+                    viewportCenter.y - y_r1_ground * scale
+                );
 
-        // Draw ground points
-        if (y1_r2 * y2_r2 <= 0) {  // Check if line crosses ground level
-            float t = -y1_r2 / (y2_r2 - y1_r2);
-            float x_ground = x1 + t * (x2 - x1);
-            float y_r1_ground = y1_r1 + t * (y2_r1 - y1_r1);
-            
-            ImVec2 groundPoint(
-                viewportCenter.x + x_ground * scale,
-                viewportCenter.y - y_r1_ground * scale
-            );
+                ImVec2 r2_groundPoint(
+                    viewportCenter.x + x_ground * scale,
+                    viewportCenter.y 
+                );
 
-            // Optional: Draw a vertical line from r2 to ground
-            ImVec2 r2_groundPoint(
-                viewportCenter.x + x_ground * scale,
-                viewportCenter.y  // Ground level in r2 view is at viewportCenter.y (y=0)
-            );
-
-            if (sceneData.settings.showCutLines) {
                 drawList->AddCircleFilled(groundPoint, 3.0f * zoom, IM_COL32(0, 0, 255, 255));
                 drawList->AddLine(r2_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f * zoom);
             }
-        }
+            
+            if ((y1_r1 * y2_r1) <= 0 && (y2_r1 - y1_r1) != 0.0f) {
+                float t = -y1_r1 / (y2_r1 - y1_r1);
+                float x_ground = x1 + t * (x2 - x1);
+                float y_r2_ground = y1_r2 + t * (y2_r2 - y1_r2);
 
-        // V
-        if (y1_r1 * y2_r1 <= 0) { 
-            float t = -y1_r1 / (y2_r1 - y1_r1);
-            float x_ground = x1 + t * (x2 - x1);
-            float y_r2_ground = y1_r2 + t * (y2_r2 - y1_r2);
-            
-            ImVec2 groundPoint(
-                viewportCenter.x + x_ground * scale,
-                viewportCenter.y - y_r2_ground * scale
-            );
-            
-            // Optional: Draw a horizontal line from r1 to ground
-            ImVec2 r1_groundPoint(
-                viewportCenter.x + x_ground * scale,
-                viewportCenter.y  // Ground level in r1 view is at viewportCenter.y (y=0)
-            );
-            
-            if (sceneData.settings.showCutLines) {
+                ImVec2 groundPoint(
+                    viewportCenter.x + x_ground * scale,
+                    viewportCenter.y - y_r2_ground * scale
+                );
+                ImVec2 r1_groundPoint(
+                    viewportCenter.x + x_ground * scale,
+                    viewportCenter.y 
+                );
+
                 drawList->AddCircleFilled(groundPoint, 3.0f * zoom, IM_COL32(255, 0, 0, 255));
                 drawList->AddLine(r1_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f * zoom);
             }
-        }
 
-        // H
-        if (y1_r2 * y2_r1 <= 0 && y1_r1 * y2_r2 <= 0) { 
-            float t1 = -y1_r2 / (y2_r2 - y1_r2);
-            float x_ground1 = x1 + t1 * (x2 - x1);
-            float y_r1_ground1 = y1_r1 + t1 * (y2_r1 - y1_r1);
-            
-            ImVec2 groundPointR2(
-                viewportCenter.x + x_ground1 * scale,
-                viewportCenter.y - y_r1_ground1 * scale
-            );
+            if ((y1_r2 * y2_r2) <= 0 && (y2_r2 - y1_r2) != 0.0f) {
+                float t = -y1_r2 / (y2_r2 - y1_r2);
+                float x_ground = x1 + t * (x2 - x1);
+                float y_r1_ground = y1_r1 + t * (y2_r1 - y1_r1);
 
-            float t2 = -y1_r1 / (y2_r1 - y1_r1);
-            float x_ground2 = x1 + t2 * (x2 - x1);
-            float y_r2_ground2 = y1_r2 + t2 * (y2_r2 - y1_r2);
-            
-            ImVec2 groundPointR1(
-                viewportCenter.x + x_ground2 * scale,
-                viewportCenter.y - y_r2_ground2 * scale
-            );
+                ImVec2 groundPoint(
+                    viewportCenter.x + x_ground * scale,
+                    viewportCenter.y - y_r1_ground * scale
+                );
+                ImVec2 r2_groundPoint(
+                    viewportCenter.x + x_ground * scale,
+                    viewportCenter.y
+                );
 
-            if (sceneData.settings.showCutLines) {
-                drawList->AddCircleFilled(groundPointR2, 3.0f * zoom, IM_COL32(255, 0, 0, 255));
-                drawList->AddCircleFilled(groundPointR1, 3.0f * zoom, IM_COL32(255, 0, 0, 255));
-                drawList->AddLine(groundPointR2, groundPointR1, IM_COL32(100, 100, 100, 128), 1.0f * zoom);
+                drawList->AddCircleFilled(groundPoint, 3.0f * zoom, IM_COL32(255, 0, 0, 255));
+                drawList->AddLine(r2_groundPoint, groundPoint, IM_COL32(100, 100, 100, 128), 1.0f * zoom);
             }
         }
     }
 }
-
 
 void DihedralViewport::DrawPlanes(App& app, ImDrawList* drawList, const ImVec2& cursorPos, const ImVec2& viewportSize, ImU32 lineColor) {
     auto& sceneData = app.GetSceneData();
