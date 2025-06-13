@@ -29,8 +29,17 @@ public:
         currentLanguage = language;
     }
 private:
+
+    struct WindowPositions {
+        ImVec2 settings;
+        ImVec2 tabs;
+        ImVec2 presets;
+        ImVec2 dihedral;
+    } windowPositions;
+
     void DrawMenuBar(App& app);
     void DrawSettingsWindow(App& app);
+
     void DrawPresetWindow(App& app);
     void DrawTabsWindow(App& app);
     void DrawPointsTab(App& app);

@@ -15,9 +15,9 @@ id,key,EN,ES,DEBUG
 13,about_username,@almartdev on GitHub,@almartdev en GitHub
 14,settings_title,Scene Settings,Configuración
 15,settings_show_quadrant_labels,Show Quadrant Labels,Identificarlos Cuadrantes
-16,settings_mouse_sens,Mouse Sensitivity,Sensivilidad del Ratón
-17,settings_offset,"Offset (X,Y)",Desplazamiento
-18,settings_scale,"World Scale",Escala
+16,settings_mouse_sens,Mouse Sensitivity,Sensibilidad del Ratón
+17,settings_offset,Offset (X/Y),Desplazamiento
+18,settings_scale,World Scale,Escala
 19,settings_more_settings,More Settings,Más Opciones
 20,settings_bg_color,Background Color,Color del Fondo
 21,settings_dihedral_bg_color,Dihedral Bg Color,Color del Diédrico

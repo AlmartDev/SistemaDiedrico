@@ -8,7 +8,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.14.2"
+#define PROGRAM_VERSION "0.14.3"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -31,18 +31,14 @@ IMGUI_CHECKVERSION();
     
 #ifdef __EMSCRIPTEN__
     const char* fontPath = "/assets/Roboto-Regular.ttf"; 
-    const char* initPath = "/assets/imgui.ini";
-
     const char* languagePath = "/assets/languages.csv";
 #else
     const char* fontPath = "./assets/Roboto-Regular.ttf"; 
-    const char* initPath = "./assets/imgui.ini";
-
     const char* languagePath = "./assets/languages.csv";
 #endif
     io.Fonts->AddFontFromFileTTF(fontPath, sceneData.settings.fontSize);
-    ImGui::GetIO().IniFilename = initPath;
-    
+    //ImGui::GetIO().IniFilename = initPath; // added dynamic window positions
+
     loadTranslations(languagePath);
 
     // check if default languae is inside the avaliable languages
@@ -159,6 +155,13 @@ void UI::ShutdownImGui() {
 }
 
 void UI::DrawUI(App& app) {
+    int width = app.GetWindowWidth();
+    int height = app.GetWindowHeight();
+
+    windowPositions.settings = ImVec2(60, 60);
+    windowPositions.presets = ImVec2(60, height - 60 - ImGui::GetTextLineHeightWithSpacing() * 10);
+    windowPositions.dihedral = ImVec2(width - 30 - 600, 30);
+
     DrawMenuBar(app);
     DrawSettingsWindow(app);
     DrawPresetWindow(app);
@@ -356,8 +359,10 @@ void UI::DrawSettingsWindow(App& app) {
     auto& camera = app.GetCamera();
     auto& renderer = app.GetRenderer();
 
-    ImGui::SetNextWindowPos(ImVec2(60, 60), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(windowPositions.settings, ImGuiCond_FirstUseEver);
     ImGui::Begin(SetText("settings_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+    windowPositions.tabs = ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y*2 + ImGui::GetWindowHeight()*2 + 90);
 
     // Store translated strings to keep them alive
     std::vector<std::string> axesTypeStrings = {
@@ -415,7 +420,8 @@ void UI::DrawSettingsWindow(App& app) {
         ImGui::Checkbox(SetText("settings_invert_y", currentLanguage).c_str(), &sceneData.settings.invertMouse[1]);
 
         ImGui::Separator();
-        if (ImGui::Button(SetText("multi_close", currentLanguage).c_str())) {
+        float buttonWidth = ImGui::GetContentRegionAvail().x;
+        if (ImGui::Button(SetText("multi_close", currentLanguage).c_str(), ImVec2(buttonWidth, 0))) {
             ImGui::CloseCurrentPopup();
         }
 
@@ -426,8 +432,8 @@ void UI::DrawSettingsWindow(App& app) {
 
         ImGui::EndPopup();
     }
+    
     ImGui::End();
-
 }
 
 void UI::DrawPointsTab(App& app) {
@@ -525,12 +531,14 @@ void UI::DrawPointsTab(App& app) {
         }
         ImGui::EndTable();
     }
+
     ImGui::PopStyleVar();
 }
 
 void UI::DrawTabsWindow(App& app) {
-    ImGui::SetNextWindowPos(ImVec2(60, 300), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(windowPositions.tabs, ImGuiCond_FirstUseEver);
     ImGui::Begin(SetText("tabs_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
 
     if (ImGui::BeginTabBar("Tabs")) {
         if (ImGui::BeginTabItem(SetText("multi_points", currentLanguage).c_str())) {
@@ -646,7 +654,7 @@ void UI::DrawLinesTab(App& app) {
         // Set column widths - first column stretches, others fixed
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("Hide Points", ImGuiTableColumnFlags_WidthFixed, 65.0f);
-        ImGui::TableSetupColumn("Visibility", ImGuiTableColumnFlags_WidthFixed, 105.0f);
+        ImGui::TableSetupColumn("Visibility**", ImGuiTableColumnFlags_WidthFixed, 105.0f);
         ImGui::TableSetupColumn("Color", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableHeadersRow();
@@ -677,7 +685,7 @@ void UI::DrawLinesTab(App& app) {
             ImGui::TableSetColumnIndex(2);
             ImGui::Checkbox("##Visibility", &line.showVisibility);
             ImGui::SameLine();
-            ImGui::Text("Visible");
+            ImGui::Text("Visibility Study");
 
             ImGui::TableSetColumnIndex(3);
             if (ImGui::ColorEdit3("##Color", (float*)&color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
@@ -944,8 +952,9 @@ void UI::DrawPresetWindow(App& app) {
     std::string presetsPath = "./assets/presets.json";
     nlohmann::json jsonContent = jsonHandler.LoadPresets(presetsPath);
 
-    ImGui::SetNextWindowPos(ImVec2(60, 650), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(60, height - 30 - 150), ImGuiCond_FirstUseEver); 
     ImGui::Begin(SetText("presets_title", currentLanguage).c_str(), nullptr);
+
     ImGui::Text(SetText("presets_message", currentLanguage).c_str());
 
     if (jsonContent.is_null()) {
@@ -1122,5 +1131,9 @@ void UI::DrawPresetWindow(App& app) {
 }
 
 void UI::DrawDihedralViewport(App& app) {
+    int width = app.GetWindowWidth();
+    int height = app.GetWindowHeight();
+    ImGui::SetNextWindowPos(ImVec2(width - 600, 30), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(600, height - 60), ImGuiCond_FirstUseEver);
     dihedralViewport.Draw(app);
 }

@@ -62,7 +62,7 @@ private:
 
     SceneData m_sceneData;
 
-    const int DEFAULT_WIDTH = 1440;
+    const int DEFAULT_WIDTH = 1920;
     const int DEFAULT_HEIGHT = 1080;
     int m_windowWidth = DEFAULT_WIDTH;
     int m_windowHeight = DEFAULT_HEIGHT;
