@@ -142,6 +142,20 @@
                     "a": 48,
                     "c": 25
                 }
+            },
+            {
+                "name": "z",
+                "description": "Recta de perfil",
+                "point1": {
+                    "d": 0,
+                    "a": 48,
+                    "c": -30
+                },
+                "point2": {
+                    "d": 0,
+                    "a": -28,
+                    "c": 48
+                }
             }
         ],
         "planes": 
@@ -207,22 +221,82 @@
                 "expand": true
             },
             {
-                "name": "Q",
-                "description": "Plano cualquiera",
+                "name": "PH",
+                "description": "Plano Horizontal",
                 "point1": {
-                    "d": 48,
-                    "a": 0,
-                    "c": 0
+                    "d": 0,
+                    "a": -45,
+                    "c": 28
                 },
                 "point2": {
-                    "d": -48,
-                    "a": 48,
-                    "c": 48
+                    "d": -44,
+                    "a": 40,
+                    "c": 27.99
                 },
                 "point3": {
-                    "d": -49,
-                    "a": -30,
-                    "c": 41
+                    "d": 40,
+                    "a": 36,
+                    "c": 28
+                },
+                "expand": true
+            },
+            {
+                "name": "PF",
+                "description": "Plano Frontal",
+                "point1": {
+                    "d": -40,
+                    "a": 28,
+                    "c": 39
+                },
+                "point2": {
+                    "d": 25,
+                    "a": 27.99,
+                    "c": 10
+                },
+                "point3": {
+                    "d": 0,
+                    "a": 28,
+                    "c": -30
+                },
+                "expand": true
+            },
+            {
+                "name": "H",
+                "description": "Proyectante Horizontal",
+                "point1": {
+                    "d": 0,
+                    "a": 0,
+                    "c": 48
+                },
+                "point2": {
+                    "d": 0,
+                    "a": 0,
+                    "c": -48
+                },
+                "point3": {
+                    "d": -40,
+                    "a": 30,
+                    "c": 0
+                },
+                "expand": true
+            },
+            {
+                "name": "V",
+                "description": "Proyectante Vertical",
+                "point1": {
+                    "d": 40,
+                    "a": -20,
+                    "c": 30
+                },
+                "point2": {
+                    "d": 40,
+                    "a": 35,
+                    "c": 30
+                },
+                "point3": {
+                    "d": -20,
+                    "a": 30,
+                    "c": -20
                 },
                 "expand": true
             },
