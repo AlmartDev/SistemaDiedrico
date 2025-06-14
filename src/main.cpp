@@ -19,7 +19,8 @@ int main(int argc, char** argv) {
 #else
 int main(int argc, char** argv) {
     App app;
-    if (!app.Initialize()) {
+
+    if (!app.Initialize(argc, argv)) {
         return -1;
     }
     

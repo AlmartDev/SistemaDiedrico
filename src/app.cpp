@@ -1,6 +1,5 @@
 #include "app.h"
 #include "ui.h"
-#include "style.h"
 
 #include <vector>
 #include <iostream>
@@ -127,7 +126,7 @@ bool App::Initialize(int argc, char** argv) {
     // parse command line arguments to get language
     for (int i = 0; i < argc; ++i) {
         if (std::string(argv[i]) == "--lang" && i + 1 < argc) {
-            m_sceneData.settings.defaultLanguage = argv[i + 1];
+            m_ui->SetLanguage(argv[i + 1]);
             break;
         }
     }
@@ -171,7 +170,7 @@ void App::HandleInput() {
     if (glfwGetKey(m_window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || 
         glfwGetKey(m_window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) {
 
-        #ifndef __EMSCRIPTEN__ // on web builds this saves the file every frame, not good
+        #ifdef _WIN32 // this soultion returned "illegal hardware instruction" on linux :(
         if (glfwGetKey(m_window, GLFW_KEY_S) == GLFW_PRESS) {
             std::string path = m_jsonHandler.SaveFileDialog();
             m_jsonHandler.Save(path, m_sceneData);

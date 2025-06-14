@@ -188,7 +188,9 @@ void UI::OpenFileDialog(App& app) {
     const char* filters = "JSON files (*.json){.json},.*";
     
     // Open file dialog
-    ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", filters);
+    IGFD::FileDialogConfig config;
+    config.flags = ImGuiFileDialogFlags_Default;
+    ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", filters, config);
 #endif
 }
 
@@ -196,9 +198,10 @@ void UI::SaveFileDialog(App& app) {
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     // Set filters
     const char* filters = "JSON files (*.json){.json},.*";
-    
-    // Open save file dialog
-    ImGuiFileDialog::Instance()->OpenDialog("SaveFileDlgKey", "Save File", filters);
+
+    IGFD::FileDialogConfig config;
+    config.flags = ImGuiFileDialogFlags_Default;    
+    ImGuiFileDialog::Instance()->OpenDialog("SaveFileDlgKey", "Save File", filters, config);
 #endif
 }
 
@@ -362,7 +365,7 @@ void UI::DrawSettingsWindow(App& app) {
     ImGui::SetNextWindowPos(windowPositions.settings, ImGuiCond_FirstUseEver);
     ImGui::Begin(SetText("settings_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    windowPositions.tabs = ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y*2 + ImGui::GetWindowHeight()*2 + 90);
+    windowPositions.tabs = ImVec2(60, 500); // we should update this but it isnt working on linux or window and both return diff stuff
 
     // Store translated strings to keep them alive
     std::vector<std::string> axesTypeStrings = {
@@ -401,6 +404,7 @@ void UI::DrawSettingsWindow(App& app) {
 
     // Make "More Settings" button span the width of the window
     float buttonWidth = ImGui::GetContentRegionAvail().x;
+    if (buttonWidth > 350.0f) buttonWidth = 350.0f;
     if (ImGui::Button(SetText("settings_more_settings", currentLanguage).c_str(), ImVec2(buttonWidth, 0))) {
         ImGui::OpenPopup("More Settings");
     }

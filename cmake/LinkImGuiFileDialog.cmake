@@ -7,7 +7,7 @@ macro(LinkImGuiFileDialog TARGET ACCESS)
         FetchContent_Declare(
             imgui_filedialog
             GIT_REPOSITORY https://github.com/aiekick/ImGuiFileDialog.git
-            GIT_TAG v0.6.7  
+            GIT_TAG v0.6.7
             SOURCE_DIR "${CMAKE_BINARY_DIR}/_deps/imgui_filedialog-src"
         )
 
