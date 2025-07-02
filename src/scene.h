@@ -6,31 +6,35 @@
 #include <string>
 #include <vector>
 
+struct Point {
+    std::string name;
+    float coords[3];
+    bool hidden = false;
+    bool userCreated = false;
+    float color[3] = {1.0f, 0.5f, 0.0f}; // orange
+};
+
+struct Line {
+    std::string name;
+    int point1index;
+    int point2index;
+    float color[3] = {1.0f, 1.0f, 1.0f}; // white
+    bool showVisibility = false;
+};
+
+struct Plane {
+    std::string name;
+    int point1index;
+    int point2index;
+    int point3index;
+    float color[3] = {0.5f, 0.5f, 0.5f}; // gray
+    bool expand = false;
+};
+
 struct SceneData {
-    struct Point {
-        std::string name;
-        float coords[3];
-        bool hidden = false;
-        bool userCreated = false;
-        float color[3] = {1.0f, 0.5f, 0.0f}; // orange
-    };
-
-    struct Line {
-        std::string name;
-        int point1index;
-        int point2index;
-        float color[3] = {1.0f, 1.0f, 1.0f}; // white
-        bool showVisibility = false;
-    };
-
-    struct Plane {
-        std::string name;
-        int point1index;
-        int point2index;
-        int point3index;
-        float color[3] = {0.5f, 0.5f, 0.5f}; // gray
-        bool expand = false;
-    };
+    std::vector<Point> points;
+    std::vector<Line> lines;
+    std::vector<Plane> planes;
 
     struct Settings {
         float backgroundColor[3] = {0.13f, 0.13f, 0.13f};
@@ -69,13 +73,7 @@ struct SceneData {
 
         // TRANSLATION
         std::string defaultLanguage = "EN";
-    };
-
-    std::vector<Point> points;
-    std::vector<Line> lines;
-    std::vector<Plane> planes;
-
-    Settings settings;
+    } settings;
 };
 
 #endif // SCENE_H

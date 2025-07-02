@@ -1,8 +1,9 @@
 #pragma once
 
-#include "app.h"
 #include <imgui.h>
 #include <imgui_internal.h>
+
+class App; // Forward declaration
 
 class DihedralViewport {
 public:

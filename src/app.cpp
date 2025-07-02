@@ -222,7 +222,7 @@ void App::LoadProject(std::vector<nlohmann::json> data) {
     if (!data[1].empty()) {
         for (const auto& point : data[1]) {
             try {
-                SceneData::Point p;
+                Point p;
                 p.name = point["name"].get<std::string>();
                 p.coords[0] = point["coords"]["d"].get<float>();
                 p.coords[1] = point["coords"]["a"].get<float>();
@@ -243,12 +243,12 @@ void App::LoadProject(std::vector<nlohmann::json> data) {
     if (data.size() > 1 && !data[2].empty()) {
         for (const auto& line : data[2]) {
             try {
-                SceneData::Line l;
+                Line l;
                 l.name = line["name"].get<std::string>();
 
                 // Find or create points
                 auto findOrCreatePoint = [&](const nlohmann::json& pointJson, const std::string& suffix) {
-                    SceneData::Point p;
+                    Point p;
                     p.name = line["name"].get<std::string>() + suffix;
                     if (pointJson.is_object()) {
                         p.coords[0] = pointJson.contains("d") ? pointJson["d"].get<float>() : 0.0f;
@@ -264,7 +264,7 @@ void App::LoadProject(std::vector<nlohmann::json> data) {
                     
                     // Check if point already exists
                     auto it = std::find_if(m_sceneData.points.begin(), m_sceneData.points.end(),
-                        [&p](const SceneData::Point& existing) { return existing.name == p.name; });
+                        [&p](const Point& existing) { return existing.name == p.name; });
                     
                     if (it == m_sceneData.points.end()) {
                         m_sceneData.points.push_back(p);
@@ -292,12 +292,12 @@ void App::LoadProject(std::vector<nlohmann::json> data) {
     if (data.size() > 2 && !data[3].empty()) {
         for (const auto& plane : data[3]) {
             try {
-                SceneData::Plane p;
+                Plane p;
                 p.name = plane["name"].get<std::string>();
 
                 // Find or create points (similar to lines)
                 auto findOrCreatePoint = [&](const nlohmann::json& pointJson, const std::string& suffix) {
-                    SceneData::Point pt;
+                    Point pt;
                     pt.name = plane["name"].get<std::string>() + suffix;
                     if (pointJson.is_object()) {
                         pt.coords[0] = pointJson.contains("d") ? pointJson["d"].get<float>() : 0.0f;
@@ -312,7 +312,7 @@ void App::LoadProject(std::vector<nlohmann::json> data) {
                     }
                     
                     auto it = std::find_if(m_sceneData.points.begin(), m_sceneData.points.end(),
-                        [&pt](const SceneData::Point& existing) { return existing.name == pt.name; });
+                        [&pt](const Point& existing) { return existing.name == pt.name; });
                     
                     if (it == m_sceneData.points.end()) {
                         m_sceneData.points.push_back(pt);
@@ -392,7 +392,7 @@ void App::PrepareRenderData() { // change from float[3] coords to glm::vec3
     m_renderer.DrawPlanes(planeNames, planePositions, planeColors, planeExpand, m_sceneData.settings.planeOpacity);
 }
 
-void App::DeletePoint(SceneData::Point& point) { // this isnt good
+void App::DeletePoint(Point& point) { // this isnt good
     point.hidden = true;
     point.name = "deleted";
 }
@@ -450,10 +450,10 @@ void App::Frame() {
 
     glViewport(m_sceneData.settings.offset[0], m_sceneData.settings.offset[1], width, height);
 
-    m_ui->DrawUI(*this);
-
-    m_renderer.Render();
-    PrepareRenderData();
+    m_ui->DrawUI(*this); // DRAWS UI
+    m_dihedralViewport.Draw(*this); // DRAWS DIHEDRAL VIEWPORT (AS A UI WINDOW)
+    m_renderer.Render(); // DRAWS 3D BASE
+    PrepareRenderData(); // DRAWS 3D SCENE
 
     //labels
     m_renderer.SetQuadrantLabelsVisible(m_sceneData.settings.showQuadrantLabels);

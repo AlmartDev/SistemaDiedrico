@@ -473,3 +473,42 @@ void Renderer::UpdateCamera(const Camera& camera, int width, int height) {
     glUniformMatrix4fv(glGetUniformLocation(m_mainShader, "view"), 1, GL_FALSE, glm::value_ptr(m_viewMatrix));
     glUniformMatrix4fv(glGetUniformLocation(m_mainShader, "projection"), 1, GL_FALSE, glm::value_ptr(m_projectionMatrix));
 }
+
+glm::vec3 Renderer::SetPositionWithGuizmo(Camera& camera) {
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y), ImGuiCond_Always);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::Begin("Guizmo Overlay", nullptr, 
+        ImGuiWindowFlags_NoTitleBar | 
+        ImGuiWindowFlags_NoInputs | 
+        ImGuiWindowFlags_NoMove | 
+        ImGuiWindowFlags_NoScrollbar | 
+        ImGuiWindowFlags_NoSavedSettings | 
+        ImGuiWindowFlags_NoFocusOnAppearing | 
+        ImGuiWindowFlags_NoBringToFrontOnFocus );
+
+    ImGuizmo::BeginFrame();
+    ImGuizmo::SetOrthographic(false);
+    ImGuizmo::SetDrawlist();
+    ImGuizmo::SetRect(0, 0, ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
+
+    static glm::mat4 transform = glm::translate(glm::mat4(1.0f), m_initialGuizmoPosition / m_scale);
+
+    ImGuizmo::Manipulate(glm::value_ptr(camera.GetViewMatrix()),
+                         glm::value_ptr(camera.GetProjectionMatrix()),
+                         ImGuizmo::TRANSLATE,
+                         ImGuizmo::LOCAL,
+                         glm::value_ptr(transform));
+
+    ImGuizmo::Enable(true);
+
+    ImGui::End();
+    ImGui::PopStyleColor();
+
+    glm::vec3 newPosition(transform[3].x * m_scale, transform[3].z * m_scale, transform[3].y * m_scale);
+    return newPosition;
+    
+    /*
+    return m_initialGuizmoPosition; 
+    */
+}

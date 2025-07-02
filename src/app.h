@@ -4,9 +4,9 @@
 #include "renderer.h"
 #include "camera.h"
 #include "json.h"
+#include "dihedral.h"
 #include "scene.h"
 
-// Forward declaration instead of including ui.h
 class UI;
 
 #ifdef __EMSCRIPTEN__
@@ -56,7 +56,7 @@ public:
 
     void LoadProject(std::vector<nlohmann::json> data);
     
-    void DeletePoint(SceneData::Point& point);
+    void DeletePoint(Point& point);
 private:
     // ui class
     UI* m_ui;
@@ -65,6 +65,7 @@ private:
     Renderer m_renderer;
     Camera m_camera;
     JsonHandler m_jsonHandler;
+    DihedralViewport m_dihedralViewport;
 
     SceneData m_sceneData;
 

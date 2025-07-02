@@ -16,6 +16,12 @@ void DihedralViewport::Draw(App& app) {
         sceneData.settings.dihedralBackgroundColor[2], 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
         
+    ImGui::SetNextWindowSize(ImVec2(580, 910), ImGuiCond_FirstUseEver);
+    ImVec2 windowPos = ImVec2(
+        app.GetWindowWidth() - 580 - 20, 
+        app.GetWindowHeight() - 910 - 10);
+    ImGui::SetNextWindowPos(windowPos, ImGuiCond_FirstUseEver);
+    
     ImGui::Begin("Dihedral Projection", nullptr, 
                 ImGuiWindowFlags_NoCollapse | 
                 ImGuiWindowFlags_NoScrollbar |

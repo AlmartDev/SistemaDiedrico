@@ -49,7 +49,7 @@ id,key,EN,ES,DEBUG
 47,multi_name,Name,Nombre
 48,welcome_title,Welcome!,Bienvenido
 49,welcome_message,Welcome to the Dihedral App!,Bienvenido a la Aplicación del Sistema Diédrico
-50,welcome_importance,IMPORTANT: This app is still under early development,IMPORTANTE: Este programa sigue en desarrollo
+50,welcome_importance,IMPORTANT: This app is still under development,IMPORTANTE: Este programa sigue en desarrollo!
 51,tabs_coords,Coords,Coordenadas
 52,tabs_cuts,Show Cuts,Trazas
 53,tabs_labels,Labels,Enseñar Nombres

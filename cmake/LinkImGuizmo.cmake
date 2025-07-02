@@ -22,8 +22,10 @@ macro(LinkImGuizmo TARGET ACCESS)
         ${imguizmo_SOURCE_DIR}/ImGuizmo.cpp
     )
 
-    # Workaround for CaptureMouseFromApp
-    target_compile_definitions(${TARGET} PRIVATE
-        -DImGui::CaptureMouseFromApp=ImGui::SetNextFrameWantCaptureMouse
-    )
+    # Only apply this workaround for non-Web builds
+    if(NOT BUILD_WEB)
+        target_compile_definitions(${TARGET} PRIVATE
+            -DCaptureMouseFromApp=SetNextFrameWantCaptureMouse
+        )
+    endif()
 endmacro()

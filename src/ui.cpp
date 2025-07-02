@@ -8,7 +8,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.14.4"
+#define PROGRAM_VERSION "0.16.1"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -161,14 +161,13 @@ void UI::DrawUI(App& app) {
     int height = app.GetWindowHeight();
 
     windowPositions.settings = ImVec2(60, 60);
+    windowPositions.tabs = ImVec2(60, 305);
     windowPositions.presets = ImVec2(60, height - 60 - ImGui::GetTextLineHeightWithSpacing() * 10);
-    windowPositions.dihedral = ImVec2(width - 30 - 600, 30);
 
     DrawMenuBar(app);
     DrawSettingsWindow(app);
     DrawPresetWindow(app);
     DrawTabsWindow(app);
-    DrawDihedralViewport(app);
 }
 
 void OpenURL(const std::string& url) {
@@ -368,8 +367,6 @@ void UI::DrawSettingsWindow(App& app) {
     ImGui::SetNextWindowPos(windowPositions.settings, ImGuiCond_FirstUseEver);
     ImGui::Begin(SetText("settings_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-    windowPositions.tabs = ImVec2(60, 500); // we should update this but it isnt working on linux or window and both return diff stuff
-
     // Store translated strings to keep them alive
     std::vector<std::string> axesTypeStrings = {
         SetText("settings_axes_3d", currentLanguage),
@@ -474,7 +471,7 @@ void UI::DrawPointsTab(App& app) {
             ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
         } 
         else if (std::any_of(sceneData.points.begin(), sceneData.points.end(), 
-                            [&](const SceneData::Point& p) { return p.name == name; })) {
+                            [&](const Point& p) { return p.name == name; })) {
             ImGui::SameLine();
             ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
         } 
@@ -517,6 +514,11 @@ void UI::DrawPointsTab(App& app) {
             if (static_cast<int>(i) == selectedPointIndex) {
                 ImU32 highlightColor = ImGui::GetColorU32(ImGuiCol_Header);
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, highlightColor);
+
+                glm::vec3 pos = renderer.SetPositionWithGuizmo(camera);
+                point.coords[0] = pos.x;
+                point.coords[1] = pos.y;
+                point.coords[2] = pos.z;
             }
 
             ImGui::TableSetColumnIndex(0);
@@ -530,6 +532,7 @@ void UI::DrawPointsTab(App& app) {
                     selectedPointIndex = -1; // Unselect
                 } else {
                     selectedPointIndex = static_cast<int>(i); // Select
+                    renderer.SetInitialGuizmoPosition(glm::vec3(point.coords[0], point.coords[2], point.coords[1]));
                 }
             }
 
@@ -552,9 +555,9 @@ void UI::DrawPointsTab(App& app) {
             ImGui::TableSetColumnIndex(2);
             if (ImGui::ColorEdit4("##Color", (float*)&color,
                 ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel)) {
-            point.color[0] = color.x;
-            point.color[1] = color.y;
-            point.color[2] = color.z;
+                point.color[0] = color.x;
+                point.color[1] = color.y;
+                point.color[2] = color.z;
             }
 
             ImGui::TableSetColumnIndex(3);
@@ -655,7 +658,7 @@ void UI::DrawLinesTab(App& app) {
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
             } else if (std::any_of(sceneData.lines.begin(), sceneData.lines.end(),
-                [&](const SceneData::Line& l) { return l.name == name; })) {
+                [&](const Line& l) { return l.name == name; })) {
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
             } else if (sceneData.points[selectedPoint1].coords == sceneData.points[selectedPoint2].coords) {
@@ -673,9 +676,9 @@ void UI::DrawLinesTab(App& app) {
     renderer.SetCutLineVisible(sceneData.settings.showCutLines);
 
     ImGui::Separator();
-
-    // Draw line list with better styling
+    // Draw line list with better styling and selection
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
+    static int selectedLineIndex = -1; // Track selected line index
     if (ImGui::BeginTable("LineTable", 5, 
         ImGuiTableFlags_NoHostExtendX | 
         ImGuiTableFlags_RowBg | 
@@ -690,6 +693,10 @@ void UI::DrawLinesTab(App& app) {
         ImGui::TableSetupColumn("Delete", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableHeadersRow();
 
+        // Move these static maps outside the loop so they persist across frames
+        static std::unordered_map<size_t, glm::vec3> initialMidMap;
+        static std::unordered_map<size_t, std::pair<glm::vec3, glm::vec3>> initialPMap;
+
         for (size_t i = 0; i < sceneData.lines.size(); ++i) {
             auto& line = sceneData.lines[i];
             ImVec4 color(line.color[0], line.color[1], line.color[2], 1.0f);
@@ -698,8 +705,85 @@ void UI::DrawLinesTab(App& app) {
 
             ImGui::TableNextRow();
 
+            // Highlight entire row if selected
+            if (static_cast<int>(i) == selectedLineIndex) {
+                ImU32 highlightColor = ImGui::GetColorU32(ImGuiCol_Header);
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, highlightColor);
+
+                if (line.point1index >= 0 && line.point1index < static_cast<int>(sceneData.points.size()) &&
+                    line.point2index >= 0 && line.point2index < static_cast<int>(sceneData.points.size())) {
+                    auto& p1 = sceneData.points[line.point1index];
+                    auto& p2 = sceneData.points[line.point2index];
+
+                    glm::vec3 mid{
+                        (p1.coords[0] + p2.coords[0]) * 0.5f,
+                        (p1.coords[1] + p2.coords[1]) * 0.5f,
+                        (p1.coords[2] + p2.coords[2]) * 0.5f
+                    };
+
+                    // Only set initial values if just selected (not every frame)
+                    if (initialMidMap.find(i) == initialMidMap.end()) {
+                        renderer.SetInitialGuizmoPosition(mid);
+                        initialMidMap[i] = mid;
+                        initialPMap[i] = { glm::vec3(p1.coords[0], p1.coords[1], p1.coords[2]),
+                                           glm::vec3(p2.coords[0], p2.coords[1], p2.coords[2]) };
+                    }
+
+                    glm::vec3 newMid = renderer.SetPositionWithGuizmo(camera);
+
+                    // Only update if guizmo moved
+                    if (newMid != initialMidMap[i]) {
+                        glm::vec3 delta = newMid - initialMidMap[i];
+                        glm::vec3 p1new = initialPMap[i].first + delta;
+                        glm::vec3 p2new = initialPMap[i].second + delta;
+                        p1.coords[0] = p1new.x;
+                        p1.coords[1] = p1new.y;
+                        p1.coords[2] = p1new.z;
+                        p2.coords[0] = p2new.x;
+                        p2.coords[1] = p2new.y;
+                        p2.coords[2] = p2new.z;
+                    }
+                }
+            } else {
+                // Clear guizmo state if not selected
+                initialMidMap.erase(i);
+                initialPMap.erase(i);
+            }
+
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%s", line.name.c_str());
+            ImVec2 cellMin = ImGui::GetCursorScreenPos();
+            ImVec2 cellMax = ImVec2(cellMin.x + ImGui::GetColumnWidth(), cellMin.y + ImGui::GetTextLineHeightWithSpacing());
+            ImVec2 buttonSize = ImVec2(cellMax.x - cellMin.x, cellMax.y - cellMin.y);
+
+            // Click area (invisible button)
+            if (ImGui::InvisibleButton("##select", buttonSize)) {
+                if (selectedLineIndex == static_cast<int>(i)) {
+                    selectedLineIndex = -1; // Unselect
+                } else {
+                    selectedLineIndex = static_cast<int>(i); // Select
+                    // Set guizmo to midpoint and only set initial maps if not already present
+                    if (line.point1index >= 0 && line.point1index < static_cast<int>(sceneData.points.size()) &&
+                        line.point2index >= 0 && line.point2index < static_cast<int>(sceneData.points.size())) {
+                        auto& p1 = sceneData.points[line.point1index];
+                        auto& p2 = sceneData.points[line.point2index];
+                        glm::vec3 mid{
+                            (p1.coords[0] + p2.coords[0]) * 0.5f,
+                            (p1.coords[1] + p2.coords[1]) * 0.5f,
+                            (p1.coords[2] + p2.coords[2]) * 0.5f
+                        };
+                        renderer.SetInitialGuizmoPosition(mid);
+                        if (initialMidMap.find(i) == initialMidMap.end()) {
+                            initialMidMap[i] = mid;
+                            initialPMap[i] = { glm::vec3(p1.coords[0], p1.coords[1], p1.coords[2]),
+                                               glm::vec3(p2.coords[0], p2.coords[1], p2.coords[2]) };
+                        }
+                    }
+                }
+            }
+
+            // Draw the visible name text
+            ImGui::SetCursorScreenPos(cellMin);
+            ImGui::TextUnformatted(line.name.empty() ? "?" : line.name.c_str());
 
             ImGui::TableSetColumnIndex(1);
             if (line.point1index >= 0 && line.point1index < static_cast<int>(sceneData.points.size()) &&
@@ -753,6 +837,12 @@ void UI::DrawLinesTab(App& app) {
                         sceneData.points[p2].hidden = false;
                     }
                 }
+                // Clean up guizmo state for this line
+                static std::unordered_map<size_t, glm::vec3> initialMidMap;
+                static std::unordered_map<size_t, std::pair<glm::vec3, glm::vec3>> initialPMap;
+                initialMidMap.erase(i);
+                initialPMap.erase(i);
+
                 --i; // Re-adjust index
                 ImGui::PopID();
                 continue;
@@ -763,6 +853,21 @@ void UI::DrawLinesTab(App& app) {
 
         ImGui::EndTable();
     }
+
+    // Show coordinate editing for selected line
+    if (selectedLineIndex >= 0 && selectedLineIndex < static_cast<int>(sceneData.lines.size())) {
+        auto& line = sceneData.lines[selectedLineIndex];
+        if (line.point1index >= 0 && line.point1index < static_cast<int>(sceneData.points.size()) &&
+            line.point2index >= 0 && line.point2index < static_cast<int>(sceneData.points.size())) {
+            auto& p1 = sceneData.points[line.point1index];
+            auto& p2 = sceneData.points[line.point2index];
+
+            ImGui::InputFloat3("P1", p1.coords);
+            ImGui::InputFloat3("P2", p2.coords);
+        }
+    }
+
+
     ImGui::PopStyleVar(); 
 }
 
@@ -821,7 +926,7 @@ void UI::DrawPlanesTab(App& app) {
                         ImGui::SameLine();
                         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
                     } else if (std::any_of(sceneData.planes.begin(), sceneData.planes.end(),
-                        [&](const SceneData::Plane& p) { return p.name == name; })) {
+                        [&](const Plane& p) { return p.name == name; })) {
                         ImGui::SameLine();
                         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
                     } else {
@@ -846,7 +951,7 @@ void UI::DrawPlanesTab(App& app) {
                     ImGui::SameLine();
                     ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name required");
                 } else if (std::any_of(sceneData.planes.begin(), sceneData.planes.end(),
-                    [&](const SceneData::Plane& p) { return p.name == name; })) {
+                    [&](const Plane& p) { return p.name == name; })) {
                     ImGui::SameLine();
                     ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Name already exists");
                 } else {
@@ -870,13 +975,17 @@ void UI::DrawPlanesTab(App& app) {
     ImGui::Separator();
 
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
-    if (ImGui::BeginTable("PlaneTable", 5, 
-        ImGuiTableFlags_NoHostExtendX | 
-        ImGuiTableFlags_RowBg | 
-        ImGuiTableFlags_Resizable | 
+    static int selectedPlaneIndex = -1;
+    // For guizmo-like movement: store initial midpoint and initial positions for each plane
+    static std::unordered_map<size_t, glm::vec3> initialMidMap;
+    static std::unordered_map<size_t, std::tuple<glm::vec3, glm::vec3, glm::vec3>> initialPMap;
+
+    if (ImGui::BeginTable("PlaneTable", 5,
+        ImGuiTableFlags_NoHostExtendX |
+        ImGuiTableFlags_RowBg |
+        ImGuiTableFlags_Resizable |
         ImGuiTableFlags_SizingStretchSame)) {
-        
-        // Set column widths
+
         ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.3f);
         ImGui::TableSetupColumn("Hide Points", ImGuiTableColumnFlags_WidthFixed, 65.0f);
         ImGui::TableSetupColumn("Expand", ImGuiTableColumnFlags_WidthFixed, 40.0f);
@@ -891,7 +1000,89 @@ void UI::DrawPlanesTab(App& app) {
             ImGui::PushID(static_cast<int>(i));
             ImGui::TableNextRow();
 
+            // Highlight row if selected
+            if (static_cast<int>(i) == selectedPlaneIndex) {
+                ImU32 highlightColor = ImGui::GetColorU32(ImGuiCol_Header);
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, highlightColor);
+
+                // --- GUizmo for plane midpoint ---
+                if (plane.point1index >= 0 && plane.point1index < static_cast<int>(sceneData.points.size()) &&
+                    plane.point2index >= 0 && plane.point2index < static_cast<int>(sceneData.points.size()) &&
+                    plane.point3index >= 0 && plane.point3index < static_cast<int>(sceneData.points.size())) {
+                    auto& p1 = sceneData.points[plane.point1index];
+                    auto& p2 = sceneData.points[plane.point2index];
+                    auto& p3 = sceneData.points[plane.point3index];
+
+                    glm::vec3 mid{
+                        (p1.coords[0] + p2.coords[0] + p3.coords[0]) / 3.0f,
+                        (p1.coords[1] + p2.coords[1] + p3.coords[1]) / 3.0f,
+                        (p1.coords[2] + p2.coords[2] + p3.coords[2]) / 3.0f
+                    };
+
+                    // Set initial guizmo position if just selected
+                    if (initialMidMap.find(i) == initialMidMap.end()) {
+                        // Set guizmo to midpoint
+                        app.GetRenderer().SetInitialGuizmoPosition(mid);
+                        initialMidMap[i] = mid;
+                        initialPMap[i] = std::make_tuple(
+                            glm::vec3(p1.coords[0], p1.coords[1], p1.coords[2]),
+                            glm::vec3(p2.coords[0], p2.coords[1], p2.coords[2]),
+                            glm::vec3(p3.coords[0], p3.coords[1], p3.coords[2])
+                        );
+                    }
+
+                    glm::vec3 newMid = app.GetRenderer().SetPositionWithGuizmo(app.GetCamera());
+                    if (newMid != initialMidMap[i]) {
+                        glm::vec3 delta = newMid - initialMidMap[i];
+                        auto [p1init, p2init, p3init] = initialPMap[i];
+                        glm::vec3 p1new = p1init + delta;
+                        glm::vec3 p2new = p2init + delta;
+                        glm::vec3 p3new = p3init + delta;
+                        p1.coords[0] = p1new.x; p1.coords[1] = p1new.y; p1.coords[2] = p1new.z;
+                        p2.coords[0] = p2new.x; p2.coords[1] = p2new.y; p2.coords[2] = p2new.z;
+                        p3.coords[0] = p3new.x; p3.coords[1] = p3new.y; p3.coords[2] = p3new.z;
+                    }
+                }
+            } else {
+                // Clear guizmo state if not selected
+                initialMidMap.erase(i);
+                initialPMap.erase(i);
+            }
+
             ImGui::TableSetColumnIndex(0);
+            ImVec2 cellMin = ImGui::GetCursorScreenPos();
+            ImVec2 cellMax = ImVec2(cellMin.x + ImGui::GetColumnWidth(), cellMin.y + ImGui::GetTextLineHeightWithSpacing());
+            ImVec2 buttonSize = ImVec2(cellMax.x - cellMin.x, cellMax.y - cellMin.y);
+
+            // Click area (invisible button)
+            if (ImGui::InvisibleButton("##select", buttonSize)) {
+                if (selectedPlaneIndex == static_cast<int>(i)) {
+                    selectedPlaneIndex = -1;
+                } else {
+                    selectedPlaneIndex = static_cast<int>(i);
+                    // Set guizmo to midpoint
+                    if (plane.point1index >= 0 && plane.point1index < static_cast<int>(sceneData.points.size()) &&
+                        plane.point2index >= 0 && plane.point2index < static_cast<int>(sceneData.points.size()) &&
+                        plane.point3index >= 0 && plane.point3index < static_cast<int>(sceneData.points.size())) {
+                        auto& p1 = sceneData.points[plane.point1index];
+                        auto& p2 = sceneData.points[plane.point2index];
+                        auto& p3 = sceneData.points[plane.point3index];
+                        glm::vec3 mid{
+                            (p1.coords[0] + p2.coords[0] + p3.coords[0]) / 3.0f,
+                            (p1.coords[1] + p2.coords[1] + p3.coords[1]) / 3.0f,
+                            (p1.coords[2] + p2.coords[2] + p3.coords[2]) / 3.0f
+                        };
+                        app.GetRenderer().SetInitialGuizmoPosition(mid);
+                        initialMidMap[i] = mid;
+                        initialPMap[i] = std::make_tuple(
+                            glm::vec3(p1.coords[0], p1.coords[1], p1.coords[2]),
+                            glm::vec3(p2.coords[0], p2.coords[1], p2.coords[2]),
+                            glm::vec3(p3.coords[0], p3.coords[1], p3.coords[2])
+                        );
+                    }
+                }
+            }
+            ImGui::SetCursorScreenPos(cellMin);
             ImGui::Text("%s", plane.name.c_str());
 
             ImGui::TableSetColumnIndex(1);
@@ -899,7 +1090,6 @@ void UI::DrawPlanesTab(App& app) {
             if (plane.point1index >= 0 && plane.point1index < static_cast<int>(sceneData.points.size()) &&
                 plane.point2index >= 0 && plane.point2index < static_cast<int>(sceneData.points.size()) &&
                 plane.point3index >= 0 && plane.point3index < static_cast<int>(sceneData.points.size())) {
-                // Use a local variable to avoid referencing possibly invalid memory after erase
                 pointsHidden = sceneData.points[plane.point1index].hidden;
                 if (ImGui::Checkbox("##Hide", &pointsHidden)) {
                     sceneData.points[plane.point1index].hidden = pointsHidden;
@@ -923,8 +1113,8 @@ void UI::DrawPlanesTab(App& app) {
                 int p1 = plane.point1index;
                 int p2 = plane.point2index;
                 int p3 = plane.point3index;
-                
-                bool p1User = (p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) ? 
+
+                bool p1User = (p1 >= 0 && p1 < static_cast<int>(sceneData.points.size())) ?
                     sceneData.points[p1].userCreated : false;
                 bool p2User = (p2 >= 0 && p2 < static_cast<int>(sceneData.points.size())) ?
                     sceneData.points[p2].userCreated : false;
@@ -955,8 +1145,10 @@ void UI::DrawPlanesTab(App& app) {
                         sceneData.points[p3].hidden = false;
                     }
                 }
+                initialMidMap.erase(i);
+                initialPMap.erase(i);
                 ImGui::PopID();
-                --i; // Re-adjust index
+                --i;
                 continue;
             }
 
@@ -964,6 +1156,23 @@ void UI::DrawPlanesTab(App& app) {
         }
 
         ImGui::EndTable();
+    }
+
+    // Show coordinate editing for selected plane
+    if (selectedPlaneIndex >= 0 && selectedPlaneIndex < static_cast<int>(sceneData.planes.size())) {
+        auto& plane = sceneData.planes[selectedPlaneIndex];
+        if (plane.point1index >= 0 && plane.point1index < static_cast<int>(sceneData.points.size()) &&
+            plane.point2index >= 0 && plane.point2index < static_cast<int>(sceneData.points.size()) &&
+            plane.point3index >= 0 && plane.point3index < static_cast<int>(sceneData.points.size())) {
+            auto& p1 = sceneData.points[plane.point1index];
+            auto& p2 = sceneData.points[plane.point2index];
+            auto& p3 = sceneData.points[plane.point3index];
+
+            ImGui::Separator();
+            ImGui::InputFloat3("P1", p1.coords);
+            ImGui::InputFloat3("P2", p2.coords);
+            ImGui::InputFloat3("P3", p3.coords);
+        }
     }
     ImGui::PopStyleVar();
 }
@@ -1154,12 +1363,4 @@ void UI::DrawPresetWindow(App& app) {
     }
 
     ImGui::End();
-}
-
-void UI::DrawDihedralViewport(App& app) {
-    int width = app.GetWindowWidth();
-    int height = app.GetWindowHeight();
-    ImGui::SetNextWindowPos(ImVec2(width - 600, 30), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(600, height - 60), ImGuiCond_FirstUseEver);
-    dihedralViewport.Draw(app);
 }

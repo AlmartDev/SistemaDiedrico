@@ -9,6 +9,8 @@
 #include <imgui.h> // 3D labels
 #include <string>
 
+#include <ImGuizmo.h>
+
 #include <vector>
 #include <glm/glm.hpp>
 
@@ -45,6 +47,9 @@ public:
         m_showPlaneLabels = labels[2];
     }
 
+    void SetInitialGuizmoPosition(const glm::vec3& position) { m_initialGuizmoPosition = position; }
+    glm::vec3 SetPositionWithGuizmo(Camera& camera);
+
     void SetQuadrantLabelsVisible(bool visible) { m_showQuadrantLabels = visible; }
 
     void DrawLabel(const char* text, const glm::vec3& position, const glm::vec3& color, bool showBackground);
@@ -72,6 +77,8 @@ private:
 
     glm::mat4 m_viewMatrix;
     glm::mat4 m_projectionMatrix;
+
+    glm::vec3 m_initialGuizmoPosition;
 
     GLuint m_mainShader = 0;
     GLuint m_planeShader = 0;
