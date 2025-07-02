@@ -13,6 +13,11 @@ glm::mat4 Camera::GetViewMatrix() const {
     return glm::lookAt(m_position, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
+glm::mat4 Camera::GetProjectionMatrix() const {
+    // Assuming a perspective projection for the camera
+    return glm::perspective(glm::radians(45.0f), 16.0f / 9.0f, 0.1f, 100.0f);
+}
+
 void Camera::ProcessMouseMovement(float deltaX, float deltaY) {
     m_yaw += deltaX * m_sensitivity;
     m_pitch -= deltaY * m_sensitivity;

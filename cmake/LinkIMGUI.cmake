@@ -4,7 +4,7 @@ macro(ImGui TARGET ACCESS)
     FetchContent_Declare(
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui
-        GIT_TAG v1.91.9b
+        GIT_TAG v1.92.0
     )
 
     FetchContent_GetProperties(imgui)

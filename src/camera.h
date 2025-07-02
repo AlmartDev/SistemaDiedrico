@@ -11,6 +11,7 @@ public:
     Camera(float distance = 3.75f);
     
     glm::vec3 GetPosition() const;
+    glm::mat4 GetProjectionMatrix() const;
     glm::mat4 GetViewMatrix() const;
 
     void ProcessMouseMovement(float deltaX, float deltaY);

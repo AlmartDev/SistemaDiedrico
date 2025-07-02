@@ -106,6 +106,10 @@ ImGui(${PROJECT_NAME} PRIVATE)
 include(${CMAKE_MODULE_PATH}/LinkImGuiFileDialog.cmake)
 LinkImGuiFileDialog(${PROJECT_NAME} PRIVATE)
 
+# ImGuizmo
+include(${CMAKE_MODULE_PATH}/LinkImGuizmo.cmake)
+LinkImGuizmo(${PROJECT_NAME} PRIVATE)
+
 # GLM
 include(${CMAKE_MODULE_PATH}/LinkGLM.cmake)
 LinkGLM(${PROJECT_NAME} PRIVATE)

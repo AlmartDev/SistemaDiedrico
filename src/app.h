@@ -34,6 +34,12 @@ public:
     Renderer& GetRenderer() { return m_renderer; }
     UI& GetUI() { return *m_ui; }
 
+    void UpdateWindowTitle(const std::string& title="") {
+        if (m_window) {
+            glfwSetWindowTitle(m_window, std::string("Sistema Diedrico" + title).c_str());
+        }
+    }
+
     void SetSceneData(const SceneData& sceneData) { // in case we open a new project we get rid of the old one
         m_sceneData = sceneData;
     }

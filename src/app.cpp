@@ -76,17 +76,19 @@ bool App::Initialize(int argc, char** argv) {
     }
 
     // Add these hints specifically for Emscripten
+    
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-    m_window = glfwCreateWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Sistema Diedrico", nullptr, nullptr);
+    m_window = glfwCreateWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Sistema Diedrico @almartdev", nullptr, nullptr);
     if (!m_window) {
         std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
         return false;
     }
+    UpdateWindowTitle();
 
     glfwMaximizeWindow(m_window); // start maximized on native platforms
 

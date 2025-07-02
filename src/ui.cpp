@@ -155,6 +155,8 @@ void UI::ShutdownImGui() {
 }
 
 void UI::DrawUI(App& app) {
+    app.UpdateWindowTitle(std::string(" - ") + PROGRAM_VERSION);
+
     int width = app.GetWindowWidth();
     int height = app.GetWindowHeight();
 
@@ -300,6 +302,7 @@ void UI::DrawMenuBar(App& app) {
             float cursorX = (menuBarWidth - textWidth) / 2.0f;
             ImGui::SetCursorPosX(cursorX);
             ImGui::TextColored(ImVec4(0.2f, 0.5f, 1.0f, 1.0f), "%s", sceneData.settings.loadedFileName.c_str());
+            app.UpdateWindowTitle(std::string("Sistema Diedrico") + " - " + PROGRAM_VERSION + " - " + sceneData.settings.loadedFileName);
         }
 
         ImGui::EndMainMenuBar();
@@ -385,6 +388,10 @@ void UI::DrawSettingsWindow(App& app) {
     } else {
         ImGui::Checkbox(SetText("settings_show_quadrant_labels", currentLanguage).c_str(), &sceneData.settings.showQuadrantLabels);
     }
+
+    //ImGui::SameLine();
+    //ImGui::Checkbox(SetText("settings_guizmos", currentLanguage).c_str(), &sceneData.settings.showGuizmos);
+    //renderer.SetGuizmosVisible(sceneData.settings.showGuizmos);
 
     ImGui::SliderFloat(SetText("settings_mouse_sens", currentLanguage).c_str(), &sceneData.settings.mouseSensitivity, 0.0f, 2.0f);
     camera.SetSensitivity(sceneData.settings.mouseSensitivity);
@@ -482,15 +489,13 @@ void UI::DrawPointsTab(App& app) {
     ImGui::Checkbox(SetText("tabs_cuts", currentLanguage).c_str(), &sceneData.settings.showCutPoints);
     renderer.SetCutPointVisible(sceneData.settings.showCutPoints);
 
-    ImGui::SameLine();
-    ImGui::Checkbox(SetText("tabs_labels", currentLanguage).c_str(), &sceneData.settings.showLabels[0]);
-
     ImGui::DragFloat(SetText("tabs_point_size", currentLanguage).c_str(), &sceneData.settings.pointSize, 0.1f, 0.1f, 100.0f);
 
     ImGui::Separator();
     
     // Draw point list with better styling
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
+    static int selectedPointIndex = -1; // Track selected point index
     if (ImGui::BeginTable("PointTable", 4, ImGuiTableFlags_NoHostExtendX                
                                          | ImGuiTableFlags_RowBg  
                                          | ImGuiTableFlags_Resizable )) {
@@ -502,21 +507,46 @@ void UI::DrawPointsTab(App& app) {
 
         for (size_t i = 0; i < sceneData.points.size(); ++i) {
             if (sceneData.points[i].hidden) continue;
-
             auto& point = sceneData.points[i];
             ImVec4 color(point.color[0], point.color[1], point.color[2], 1.0f);
 
-            ImGui::PushID(static_cast<int>(i)); // Unique ID scope for widgets
-
+            ImGui::PushID(static_cast<int>(i));
             ImGui::TableNextRow();
 
+            // Highlight entire row if selected
+            if (static_cast<int>(i) == selectedPointIndex) {
+                ImU32 highlightColor = ImGui::GetColorU32(ImGuiCol_Header);
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, highlightColor);
+            }
+
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("%s (%c)", point.name.c_str(), point.name.empty() ? '?' : point.name[0]);
+            ImVec2 cellMin = ImGui::GetCursorScreenPos();
+            ImVec2 cellMax = ImVec2(cellMin.x + ImGui::GetColumnWidth(), cellMin.y + ImGui::GetTextLineHeightWithSpacing());
+            ImVec2 buttonSize = ImVec2(cellMax.x - cellMin.x, cellMax.y - cellMin.y);
+
+            // Click area (invisible button)
+            if (ImGui::InvisibleButton("##select", buttonSize)) {
+                if (selectedPointIndex == static_cast<int>(i)) {
+                    selectedPointIndex = -1; // Unselect
+                } else {
+                    selectedPointIndex = static_cast<int>(i); // Select
+                }
+            }
+
+            // Draw the visible name text
+            ImGui::SetCursorScreenPos(cellMin);
+            ImGui::TextUnformatted(point.name.empty() ? "?" : point.name.c_str());
 
             ImGui::TableSetColumnIndex(1);
             ImGui::PushID(static_cast<int>(i));
             ImGui::SetNextItemWidth(-FLT_MIN); // Use all available width in the cell
-            ImGui::DragFloat3("", point.coords, 0.1f);
+
+            if (ImGui::IsWindowFocused() && selectedPointIndex != static_cast<int>(i)) { // fix this later
+                ImGui::DragFloat3("", point.coords, 0.1f);
+            }
+            else {
+                ImGui::Text("%.2f, %.2f, %.2f", point.coords[0], point.coords[1], point.coords[2]);
+            }
             ImGui::PopID();
 
             ImGui::TableSetColumnIndex(2);
@@ -641,9 +671,6 @@ void UI::DrawLinesTab(App& app) {
     ImGui::SameLine();
     ImGui::Checkbox(SetText("tabs_cuts", currentLanguage).c_str(), &sceneData.settings.showCutLines);
     renderer.SetCutLineVisible(sceneData.settings.showCutLines);
-
-    ImGui::SameLine();
-    ImGui::Checkbox(SetText("tabs_labels", currentLanguage).c_str(), &sceneData.settings.showLabels[1]);
 
     ImGui::Separator();
 
@@ -804,9 +831,6 @@ void UI::DrawPlanesTab(App& app) {
                 }
             }
 
-            ImGui::SameLine();
-            ImGui::Checkbox(SetText("tabs_labels", currentLanguage).c_str(), &sceneData.settings.showLabels[2]);
-
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem(SetText("tabs_add_coords", currentLanguage).c_str())) {
@@ -837,8 +861,6 @@ void UI::DrawPlanesTab(App& app) {
                     planeName[0] = '\0';
                 }
             }
-            ImGui::SameLine();
-            ImGui::Checkbox("Labels", &sceneData.settings.showLabels[2]);  
 
             ImGui::EndTabItem();
         }
