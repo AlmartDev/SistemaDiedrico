@@ -59,5 +59,9 @@ private:
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> translations;
     std::vector<std::string> availableLanguages;
 
+    // icons
+    void SetIcon(const std::string& iconName);
+    void SetIconWindowTitle(const std::string& iconName);
+
     std::string currentLanguage;
 };

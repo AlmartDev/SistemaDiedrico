@@ -8,7 +8,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.16.1"
+#define PROGRAM_VERSION "0.16.4"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -31,14 +31,21 @@ IMGUI_CHECKVERSION();
     
 #ifdef __EMSCRIPTEN__
     const char* fontPath = "/assets/Roboto-Regular.ttf"; 
+    const char* iconFontPath = "/assets/MaterialIcons-Regular.ttf";
     const char* languagePath = "/assets/languages.csv";
 #else
     const char* fontPath = "./assets/Roboto-Regular.ttf"; 
+    const char* iconFontPath = "./assets/MaterialIcons-Regular.ttf";
     const char* languagePath = "./assets/languages.csv";
 #endif
+    // load fonts
     io.Fonts->AddFontFromFileTTF(fontPath, sceneData.settings.fontSize);
-    //ImGui::GetIO().IniFilename = initPath; // added dynamic window positions
+    ImFontConfig iconFontConfig;
+    iconFontConfig.MergeMode = true; 
+    iconFontConfig.PixelSnapH = true; 
+    io.Fonts->AddFontFromFileTTF(iconFontPath, sceneData.settings.fontSize - 1.0f, &iconFontConfig, io.Fonts->GetGlyphRangesDefault());
 
+    
     loadTranslations(languagePath);
 
     // check if default languae is inside the avaliable languages
@@ -182,6 +189,8 @@ void OpenURL(const std::string& url) {
 #endif
 }
 
+
+
 // IMGUI DIALOGS -----------------------------------------
 void UI::OpenFileDialog(App& app) {
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
@@ -206,14 +215,25 @@ void UI::SaveFileDialog(App& app) {
 #endif
 }
 
+void UI::SetIcon(const std::string& iconName) {
+    ImGuiIO& io = ImGui::GetIO();
+    ImFont* iconFont = io.Fonts->Fonts.back(); // Get the last font, which should be the icon font
+    ImGui::PushFont(iconFont);
+    ImGui::TextUnformatted(iconName.c_str());
+    ImGui::PopFont();
+    ImGui::SameLine(0, 4); // Add a small space after the icon, before the next element
+}
+
 void UI::DrawMenuBar(App& app) {
     auto& sceneData = app.GetSceneData();
     int width = app.GetWindowWidth();
     int height = app.GetWindowHeight();
 
     if (ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu(SetText("menu_file", currentLanguage).c_str())) {
-                if (ImGui::MenuItem(SetText("menu_open", currentLanguage).c_str(), "Ctrl+O")) {
+        bool fileMenuOpen = ImGui::BeginMenu((SetText("menu_file", currentLanguage)).c_str());
+        if (fileMenuOpen) {
+            SetIcon(u8"\uE2C7");
+            if (ImGui::MenuItem(SetText("menu_open", currentLanguage).c_str(), "Ctrl+O")) {
                 #ifdef __EMSCRIPTEN__
                     JsonHandler* handler = JsonHandlerInstance();
                     handler->OpenFileDialog();
@@ -229,6 +249,13 @@ void UI::DrawMenuBar(App& app) {
                     OpenFileDialog(app);
                 #endif
                 }
+
+            #ifdef __EMSCRIPTEN__
+                SetIcon(u8"\uF090"); // download icon
+            #else
+                SetIcon(u8"\uE161"); // save icon 
+            #endif
+
             if (ImGui::MenuItem(SetText("menu_save", currentLanguage).c_str(), "Ctrl+S")) {
             #if defined(__EMSCRIPTEN__) || defined(_WIN32)
                 std::string path = app.GetJsonHandler().SaveFileDialog();
@@ -242,6 +269,7 @@ void UI::DrawMenuBar(App& app) {
 
         if (ImGui::BeginMenu(SetText("menu_app", currentLanguage).c_str())) {
             if (availableLanguages.size() > 1) {
+                SetIcon(u8"\uE894");
                 if (ImGui::BeginMenu(SetText("menu_lang", currentLanguage).c_str())) {
                     ImGui::TextColored(ImVec4(0.2f, 0.5f, 1.0f, 1.0f), "./languages.csv");
                     for (const std::string& lang : availableLanguages) {
@@ -257,6 +285,7 @@ void UI::DrawMenuBar(App& app) {
                 }
                 ImGui::Separator();
             }
+            SetIcon(u8"\uE04B"); 
             if (ImGui::MenuItem(SetText("menu_clear_scene", currentLanguage).c_str())) {
                 app.GetCamera().ResetPosition();
                 sceneData.points.clear();
@@ -264,14 +293,17 @@ void UI::DrawMenuBar(App& app) {
                 sceneData.planes.clear();
                 sceneData.settings = SceneData::Settings();
             }
+            SetIcon(u8"\uEFE9"); 
             if (ImGui::MenuItem(SetText("menu_reset_cam", currentLanguage).c_str())) {
                 app.GetCamera().ResetPosition();
             }
+            SetIcon(u8"\uE8B8"); 
             if (ImGui::MenuItem(SetText("menu_reset_settings", currentLanguage).c_str())) {
                 sceneData.settings = SceneData::Settings();
             }
             
             #ifndef __EMSCRIPTEN__
+            SetIcon(u8"\uE5CD");
             if (ImGui::MenuItem(SetText("menu_exit", currentLanguage).c_str())) {
                 glfwSetWindowShouldClose(app.GetWindow(), true);
             }
@@ -280,12 +312,15 @@ void UI::DrawMenuBar(App& app) {
         }
 
         if (ImGui::BeginMenu(SetText("menu_help", currentLanguage).c_str())) {
+            SetIcon(u8"\uE853");
             if (ImGui::MenuItem("GitHub")) {
                 OpenURL("https://github.com/AlmartDev/SistemaDiedrico");
             }
+            SetIcon(u8"\uE873");
             if (ImGui::MenuItem(SetText("menu_docs", currentLanguage).c_str())) {
                 ImGui::Text("Documentation is not available yet.");
             }
+            SetIcon(u8"\uE88E");
             if (ImGui::BeginMenu(SetText("menu_about", currentLanguage).c_str())) {
                 ImGui::Text("v%s", PROGRAM_VERSION);
                 ImGui::Text(SetText("about_author", currentLanguage).c_str());
@@ -346,6 +381,7 @@ void UI::DrawMenuBar(App& app) {
                          ImGuiWindowFlags_AlwaysAutoResize |
                          ImGuiWindowFlags_NoCollapse |
                          ImGuiWindowFlags_NoResize)) {
+            SetIcon(u8"\uE88E"); 
             ImGui::Text(SetText("welcome_message", currentLanguage).c_str());
             ImGui::Text(SetText("welcome_importance", currentLanguage).c_str());
             ImGui::Separator();
