@@ -1,4 +1,7 @@
-# Sistema Diedrico (Dihedral System)
+<p align="center">
+<img src="https://github.com/AlmartDev/SistemaDiedrico/blob/main/assets/favicon.ico">
+</p>
+<h1 align="center">Sistema Diedrico (Dihedral System)</h1>
 
 [![Web Version](https://img.shields.io/badge/Live%20Demo-Available-green)](https://almartdev.github.io/SistemaDiedrico)
 
