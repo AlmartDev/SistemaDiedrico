@@ -319,7 +319,7 @@ void UI::DrawMenuBar(App& app) {
             }
             SetIcon(u8"\uE873");
             if (ImGui::MenuItem(SetText("menu_docs", currentLanguage).c_str())) {
-                OpenURL("https://github.com/AlmartDev/SistemaDiedrico/documentation_es.md");
+                OpenURL("https://github.com/AlmartDev/SistemaDiedrico/blob/main/docs/documentation_es.md");
             }
             SetIcon(u8"\uE88E");
             if (ImGui::BeginMenu(SetText("menu_about", currentLanguage).c_str())) {
