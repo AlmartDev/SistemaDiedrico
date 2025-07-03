@@ -24,6 +24,7 @@ As a student struggling with spatial visualization, I couldn't find adequate sof
 - Support for points, lines, and planes (for now)
 - Web and desktop versions
 - Save/Loading projects
+- Documentation (ES): ![Github Wiki](https://github.com/AlmartDev/SistemaDiedrico/wiki)
 
 ## Installation
 
