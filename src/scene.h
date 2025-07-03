@@ -53,7 +53,7 @@ struct SceneData {
         float mouseSensitivity = 0.2f;
         bool invertMouse[2] = {false, false}; 
         float cameraDistance;
-        float fontSize = 14.0f;
+        float fontSize = 15.0f;
 
         float worldScale = 50.0f; // scale for coordinates
 

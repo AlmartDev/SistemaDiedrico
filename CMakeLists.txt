@@ -118,6 +118,10 @@ LinkGLM(${PROJECT_NAME} PRIVATE)
 include(${CMAKE_MODULE_PATH}/LinkJSON.cmake)
 LinkJSON(${PROJECT_NAME} PRIVATE)
 
+# STB
+include(${CMAKE_MODULE_PATH}/LinkSTB.cmake)
+LinkSTB(${PROJECT_NAME} PRIVATE)
+
 # Additional include directories
 target_include_directories(${PROJECT_NAME} PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/include

@@ -8,7 +8,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.16.4"
+#define PROGRAM_VERSION "0.16.6"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -30,12 +30,12 @@ IMGUI_CHECKVERSION();
     ImGuiIO& io = ImGui::GetIO();
     
 #ifdef __EMSCRIPTEN__
-    const char* fontPath = "/assets/Roboto-Regular.ttf"; 
-    const char* iconFontPath = "/assets/MaterialIcons-Regular.ttf";
+    const char* fontPath = "/assets/fonts/Roboto-Regular.ttf"; 
+    const char* iconFontPath = "/assets/fonts/MaterialIcons-Regular.ttf";
     const char* languagePath = "/assets/languages.csv";
 #else
-    const char* fontPath = "./assets/Roboto-Regular.ttf"; 
-    const char* iconFontPath = "./assets/MaterialIcons-Regular.ttf";
+    const char* fontPath = "./assets/fonts/Roboto-Regular.ttf"; 
+    const char* iconFontPath = "./assets/fonts/MaterialIcons-Regular.ttf";
     const char* languagePath = "./assets/languages.csv";
 #endif
     // load fonts
@@ -285,7 +285,7 @@ void UI::DrawMenuBar(App& app) {
                 }
                 ImGui::Separator();
             }
-            SetIcon(u8"\uE04B"); 
+            SetIcon(u8"\uEFE9"); 
             if (ImGui::MenuItem(SetText("menu_clear_scene", currentLanguage).c_str())) {
                 app.GetCamera().ResetPosition();
                 sceneData.points.clear();
@@ -293,7 +293,7 @@ void UI::DrawMenuBar(App& app) {
                 sceneData.planes.clear();
                 sceneData.settings = SceneData::Settings();
             }
-            SetIcon(u8"\uEFE9"); 
+            SetIcon(u8"\uE04B"); 
             if (ImGui::MenuItem(SetText("menu_reset_cam", currentLanguage).c_str())) {
                 app.GetCamera().ResetPosition();
             }
@@ -303,6 +303,7 @@ void UI::DrawMenuBar(App& app) {
             }
             
             #ifndef __EMSCRIPTEN__
+            ImGui::Separator();
             SetIcon(u8"\uE5CD");
             if (ImGui::MenuItem(SetText("menu_exit", currentLanguage).c_str())) {
                 glfwSetWindowShouldClose(app.GetWindow(), true);
@@ -480,6 +481,30 @@ void UI::DrawSettingsWindow(App& app) {
     ImGui::End();
 }
 
+void UI::DrawTabsWindow(App& app) {
+    ImGui::SetNextWindowPos(windowPositions.tabs, ImGuiCond_FirstUseEver);
+    ImGui::Begin(SetText("tabs_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+
+    if (ImGui::BeginTabBar("Tabs")) {
+        if (ImGui::BeginTabItem(SetText("multi_points", currentLanguage).c_str())) {
+            DrawPointsTab(app);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem(SetText("multi_lines", currentLanguage).c_str())) {
+            DrawLinesTab(app);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem(SetText("multi_planes", currentLanguage).c_str())) {
+            DrawPlanesTab(app);
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+
+    ImGui::End();
+}
+
 void UI::DrawPointsTab(App& app) {
     auto& sceneData = app.GetSceneData();
     auto& renderer = app.GetRenderer();
@@ -574,7 +599,7 @@ void UI::DrawPointsTab(App& app) {
 
             // Draw the visible name text
             ImGui::SetCursorScreenPos(cellMin);
-            ImGui::TextUnformatted(point.name.empty() ? "?" : point.name.c_str());
+            ImGui::Text("  %s", point.name.c_str());
 
             ImGui::TableSetColumnIndex(1);
             ImGui::PushID(static_cast<int>(i));
@@ -606,30 +631,6 @@ void UI::DrawPointsTab(App& app) {
     }
 
     ImGui::PopStyleVar();
-}
-
-void UI::DrawTabsWindow(App& app) {
-    ImGui::SetNextWindowPos(windowPositions.tabs, ImGuiCond_FirstUseEver);
-    ImGui::Begin(SetText("tabs_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-
-    if (ImGui::BeginTabBar("Tabs")) {
-        if (ImGui::BeginTabItem(SetText("multi_points", currentLanguage).c_str())) {
-            DrawPointsTab(app);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem(SetText("multi_lines", currentLanguage).c_str())) {
-            DrawLinesTab(app);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem(SetText("multi_planes", currentLanguage).c_str())) {
-            DrawPlanesTab(app);
-            ImGui::EndTabItem();
-        }
-        ImGui::EndTabBar();
-    }
-
-    ImGui::End();
 }
 
 void UI::DrawLinesTab(App& app) {
@@ -722,7 +723,7 @@ void UI::DrawLinesTab(App& app) {
         ImGuiTableFlags_SizingStretchSame)) {
         
         // Set column widths - first column stretches, others fixed
-        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn(" Name", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableSetupColumn("Hide Points", ImGuiTableColumnFlags_WidthFixed, 65.0f);
         ImGui::TableSetupColumn("Visibility**", ImGuiTableColumnFlags_WidthFixed, 105.0f);
         ImGui::TableSetupColumn("Color", ImGuiTableColumnFlags_WidthFixed, 40.0f);
@@ -819,7 +820,7 @@ void UI::DrawLinesTab(App& app) {
 
             // Draw the visible name text
             ImGui::SetCursorScreenPos(cellMin);
-            ImGui::TextUnformatted(line.name.empty() ? "?" : line.name.c_str());
+            ImGui::Text("%s", line.name.c_str());
 
             ImGui::TableSetColumnIndex(1);
             if (line.point1index >= 0 && line.point1index < static_cast<int>(sceneData.points.size()) &&
@@ -1022,7 +1023,7 @@ void UI::DrawPlanesTab(App& app) {
         ImGuiTableFlags_Resizable |
         ImGuiTableFlags_SizingStretchSame)) {
 
-        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.3f);
+        ImGui::TableSetupColumn(" Name", ImGuiTableColumnFlags_WidthStretch, 0.3f);
         ImGui::TableSetupColumn("Hide Points", ImGuiTableColumnFlags_WidthFixed, 65.0f);
         ImGui::TableSetupColumn("Expand", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableSetupColumn("Color", ImGuiTableColumnFlags_WidthFixed, 40.0f);
@@ -1041,7 +1042,6 @@ void UI::DrawPlanesTab(App& app) {
                 ImU32 highlightColor = ImGui::GetColorU32(ImGuiCol_Header);
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, highlightColor);
 
-                // --- GUizmo for plane midpoint ---
                 if (plane.point1index >= 0 && plane.point1index < static_cast<int>(sceneData.points.size()) &&
                     plane.point2index >= 0 && plane.point2index < static_cast<int>(sceneData.points.size()) &&
                     plane.point3index >= 0 && plane.point3index < static_cast<int>(sceneData.points.size())) {
@@ -1119,7 +1119,7 @@ void UI::DrawPlanesTab(App& app) {
                 }
             }
             ImGui::SetCursorScreenPos(cellMin);
-            ImGui::Text("%s", plane.name.c_str());
+            ImGui::Text("  %s", plane.name.c_str());
 
             ImGui::TableSetColumnIndex(1);
             bool pointsHidden = false;
@@ -1224,7 +1224,7 @@ void UI::DrawPresetWindow(App& app) {
     nlohmann::json jsonContent = jsonHandler.LoadPresets(presetsPath);
 
     ImGui::SetNextWindowPos(ImVec2(60, height - 30 - 150), ImGuiCond_FirstUseEver); 
-    ImGui::Begin(SetText("presets_title", currentLanguage).c_str(), nullptr);
+    ImGui::Begin(SetText("presets_title", currentLanguage).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
     ImGui::Text(SetText("presets_message", currentLanguage).c_str());
 

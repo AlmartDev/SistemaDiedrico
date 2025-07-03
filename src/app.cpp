@@ -6,7 +6,8 @@
 #include <algorithm>
 #include <string>
 
-#include "scene.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 #ifdef __EMSCRIPTEN__ 
 #include <emscripten.h>
@@ -74,8 +75,6 @@ bool App::Initialize(int argc, char** argv) {
         std::cerr << "Failed to initialize GLFW\n";
         return false;
     }
-
-    // Add these hints specifically for Emscripten
     
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -117,6 +116,16 @@ bool App::Initialize(int argc, char** argv) {
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // icons (assets/icon.ico) with stb
+    int width, height, channels;
+    unsigned char* iconPixels = stbi_load("assets/logo.png", &width, &height, &channels, 4);
+    
+    GLFWimage icon;
+    icon.width = width;
+    icon.height = height;
+    icon.pixels = iconPixels;
+    glfwSetWindowIcon(m_window, 1, &icon);
 
     m_ui->SetupImGui(*this);
 
