@@ -8,7 +8,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.16.7"
+#define PROGRAM_VERSION "0.16.8"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -319,7 +319,7 @@ void UI::DrawMenuBar(App& app) {
             }
             SetIcon(u8"\uE873");
             if (ImGui::MenuItem(SetText("menu_docs", currentLanguage).c_str())) {
-                OpenURL("https://github.com/AlmartDev/SistemaDiedrico/blob/main/docs/documentation_es.md");
+                OpenURL("https://github.com/AlmartDev/SistemaDiedrico/wiki");
             }
             SetIcon(u8"\uE88E");
             if (ImGui::BeginMenu(SetText("menu_about", currentLanguage).c_str())) {
