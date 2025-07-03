@@ -492,23 +492,24 @@ glm::vec3 Renderer::SetPositionWithGuizmo(Camera& camera) {
     ImGuizmo::SetDrawlist();
     ImGuizmo::SetRect(0, 0, ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y);
 
-    static glm::mat4 transform = glm::translate(glm::mat4(1.0f), m_initialGuizmoPosition / m_scale);
-
+    // Manipulate the stored transform
     ImGuizmo::Manipulate(glm::value_ptr(camera.GetViewMatrix()),
                          glm::value_ptr(camera.GetProjectionMatrix()),
                          ImGuizmo::TRANSLATE,
                          ImGuizmo::LOCAL,
-                         glm::value_ptr(transform));
-
-    ImGuizmo::Enable(true);
+                         glm::value_ptr(m_guizmoTransform));
 
     ImGui::End();
     ImGui::PopStyleColor();
 
-    glm::vec3 newPosition(transform[3].x * m_scale, transform[3].z * m_scale, transform[3].y * m_scale);
+    // Extract the new position from the transform matrix
+    glm::vec3 newPosition(m_guizmoTransform[3].x * m_scale, 
+                         m_guizmoTransform[3].z * m_scale, 
+                         m_guizmoTransform[3].y * m_scale);
     return newPosition;
-    
-    /*
-    return m_initialGuizmoPosition; 
-    */
+}
+
+    void Renderer::SetInitialGuizmoPosition(const glm::vec3& position) {
+    m_initialGuizmoPosition = position;
+    m_guizmoTransform = glm::translate(glm::mat4(1.0f), position / m_scale);
 }

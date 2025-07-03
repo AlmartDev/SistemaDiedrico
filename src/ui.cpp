@@ -8,7 +8,7 @@
 
 #include "style.h"
 
-#define PROGRAM_VERSION "0.16.6"
+#define PROGRAM_VERSION "0.16.7"
 
 #if !defined(__EMSCRIPTEN__) && !defined(_WIN32)
     #include "ImGuiFileDialog.h"
@@ -554,9 +554,10 @@ void UI::DrawPointsTab(App& app) {
     // Draw point list with better styling
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 4));
     static int selectedPointIndex = -1; // Track selected point index
+    static int lastSelectedPointIndex = -1; // Track last selected point index
     if (ImGui::BeginTable("PointTable", 4, ImGuiTableFlags_NoHostExtendX                
-                                         | ImGuiTableFlags_RowBg  
-                                         | ImGuiTableFlags_Resizable )) {
+                                     | ImGuiTableFlags_RowBg  
+                                     | ImGuiTableFlags_Resizable )) {
         ImGui::TableSetupColumn(" Name", ImGuiTableColumnFlags_WidthFixed, 40.0f);
         ImGui::TableSetupColumn("Coords", ImGuiTableColumnFlags_WidthStretch, 0.0f);
         ImGui::TableSetupColumn("Color", ImGuiTableColumnFlags_WidthFixed, 40.0f);
@@ -571,30 +572,33 @@ void UI::DrawPointsTab(App& app) {
             ImGui::PushID(static_cast<int>(i));
             ImGui::TableNextRow();
 
-            // Highlight entire row if selected
-            if (static_cast<int>(i) == selectedPointIndex) {
-                ImU32 highlightColor = ImGui::GetColorU32(ImGuiCol_Header);
-                ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, highlightColor);
-
-                glm::vec3 pos = renderer.SetPositionWithGuizmo(camera);
-                point.coords[0] = pos.x;
-                point.coords[1] = pos.y;
-                point.coords[2] = pos.z;
-            }
-
             ImGui::TableSetColumnIndex(0);
             ImVec2 cellMin = ImGui::GetCursorScreenPos();
             ImVec2 cellMax = ImVec2(cellMin.x + ImGui::GetColumnWidth(), cellMin.y + ImGui::GetTextLineHeightWithSpacing());
             ImVec2 buttonSize = ImVec2(cellMax.x - cellMin.x, cellMax.y - cellMin.y);
 
-            // Click area (invisible button)
             if (ImGui::InvisibleButton("##select", buttonSize)) {
-                if (selectedPointIndex == static_cast<int>(i)) {
-                    selectedPointIndex = -1; // Unselect
-                } else {
-                    selectedPointIndex = static_cast<int>(i); // Select
+                if (selectedPointIndex != static_cast<int>(i)) {
+                    selectedPointIndex = static_cast<int>(i);
+                    // Reset guizmo position to the new point's position
+                    auto& point = sceneData.points[i];
                     renderer.SetInitialGuizmoPosition(glm::vec3(point.coords[0], point.coords[2], point.coords[1]));
                 }
+                else {
+                    selectedPointIndex = -1;
+                }
+            }
+
+            // In the rendering of selected point:
+            if (static_cast<int>(i) == selectedPointIndex) {
+                ImU32 highlightColor = ImGui::GetColorU32(ImGuiCol_Header);
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, highlightColor);
+
+                // Get updated position from guizmo
+                glm::vec3 pos = renderer.SetPositionWithGuizmo(camera);
+                point.coords[0] = pos.x;
+                point.coords[1] = pos.y;
+                point.coords[2] = pos.z;
             }
 
             // Draw the visible name text

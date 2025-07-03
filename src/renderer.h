@@ -47,7 +47,7 @@ public:
         m_showPlaneLabels = labels[2];
     }
 
-    void SetInitialGuizmoPosition(const glm::vec3& position) { m_initialGuizmoPosition = position; }
+    void SetInitialGuizmoPosition(const glm::vec3& position);
     glm::vec3 SetPositionWithGuizmo(Camera& camera);
 
     void SetQuadrantLabelsVisible(bool visible) { m_showQuadrantLabels = visible; }
@@ -78,6 +78,7 @@ private:
     glm::mat4 m_viewMatrix;
     glm::mat4 m_projectionMatrix;
 
+    glm::mat4 m_guizmoTransform;
     glm::vec3 m_initialGuizmoPosition;
 
     GLuint m_mainShader = 0;
